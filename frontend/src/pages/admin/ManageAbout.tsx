@@ -109,6 +109,13 @@ const ManageAbout = () => {
     setFormData({ ...formData, [field]: newList });
   };
 
+  // Helper to get correct image URL
+  const getImageUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${BASE_URL}${path}`;
+  };
+
   if (isLoading || !formData) return <LoadingSpinner />;
 
   return (
@@ -182,7 +189,7 @@ const ManageAbout = () => {
               <label className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-2 block">About Image</label>
               <div className="aspect-video bg-black/40 rounded-2xl border-2 border-dashed border-white/10 overflow-hidden relative">
                 {formData.aboutImage ? (
-                  <img src={`${BASE_URL}${formData.aboutImage}`} alt="About" className="w-full h-full object-cover" />
+                  <img src={getImageUrl(formData.aboutImage)} alt="About" className="w-full h-full object-cover" />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-gray-500">
                     <ImageIcon size={40} className="mb-2" />
