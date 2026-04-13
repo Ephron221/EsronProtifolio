@@ -32,13 +32,15 @@ const ManageDocuments = lazy(() => import('./pages/admin/ManageDocuments'));
 
 function App() {
   const location = useLocation();
-  const isAdminPath = location.pathname.startsWith('/admin');
+  // We want to hide navbar/footer only for the protected admin DASHBOARD pages,
+  // but keep them for the public-facing admin LOGIN page.
+  const isDashboardPath = location.pathname.startsWith('/admin') && location.pathname !== '/admin/login';
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white transition-colors duration-300">
-      {!isAdminPath && <Navbar />}
+      {!isDashboardPath && <Navbar />}
       
-      <main className={!isAdminPath ? "pt-20" : ""}>
+      <main className={!isDashboardPath ? "pt-20" : ""}>
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             {/* Public Routes */}
@@ -52,10 +54,10 @@ function App() {
             <Route path="/documents" element={<Documents />} />
             <Route path="/document/:id" element={<DocumentViewer />} />
 
-            {/* Admin Auth */}
+            {/* Admin Auth - Now has Navbar/Footer */}
             <Route path="/admin/login" element={<Login />} />
 
-            {/* Protected Admin Routes */}
+            {/* Protected Admin Routes - Dashboard (No Navbar/Footer) */}
             <Route element={<ProtectedRoute />}>
               <Route path="/admin" element={<DashboardLayout />}>
                 <Route index element={<DashboardOverview />} />
@@ -74,8 +76,8 @@ function App() {
         </Suspense>
       </main>
       
-      {!isAdminPath && <Chatbot />}
-      {!isAdminPath && <Footer />}
+      {!isDashboardPath && <Chatbot />}
+      {!isDashboardPath && <Footer />}
     </div>
   );
 }

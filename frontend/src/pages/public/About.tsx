@@ -25,6 +25,13 @@ const About = () => {
     );
   }
 
+  // Helper to get correct image URL
+  const getImageUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${BASE_URL}${path}`;
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -72,7 +79,7 @@ const About = () => {
               <div className="relative z-10 rounded-[40px] overflow-hidden border-2 border-primary/20 bg-[#0A0A0A] p-4 shadow-2xl">
                 {aboutData.aboutImage ? (
                   <img 
-                    src={`${BASE_URL}${aboutData.aboutImage}`} 
+                    src={getImageUrl(aboutData.aboutImage)} 
                     alt="Profile" 
                     className="w-full h-auto rounded-[30px] grayscale hover:grayscale-0 transition-all duration-700"
                   />
