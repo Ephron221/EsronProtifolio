@@ -1,0 +1,9 @@
+- [x] Update Backend
+    - [x] Add `phone` to `Contact` model
+    - [x] Update `createContact` controller
+- [x] Update Frontend
+    - [x] Add `phone` to `ContactForm` interface and form in `Contact.tsx`
+    - [x] Display `phone` in `ManageContacts.tsx` (Admin)
+- [ ] Verification
+    - [x] Test form submission (Logic updated)
+    - [x] Verify data in Admin Dashboard (UI updated)

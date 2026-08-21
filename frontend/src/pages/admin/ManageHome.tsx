@@ -12,7 +12,8 @@ import {
   Upload,
   Terminal
 } from 'lucide-react';
-import api, { BASE_URL } from '../../services/api';
+import api from '../../services/api';
+import { getAssetUrl } from '../../utils/url';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -225,7 +226,7 @@ const ManageHome = () => {
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Profile Identity</label>
             <div className="relative aspect-square rounded-2xl overflow-hidden border border-white/10 mb-4 bg-white/5 group">
               <img
-                src={formData.profileImage ? (formData.profileImage.startsWith('http') ? formData.profileImage : `${BASE_URL}${formData.profileImage}`) : ''}
+                src={getAssetUrl(formData.profileImage, 'https://via.placeholder.com/300')}
                 alt="Identity"
                 className="w-full h-full object-cover"
                 onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/300')}

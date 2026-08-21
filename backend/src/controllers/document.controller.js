@@ -1,7 +1,6 @@
 const Document = require('../models/Document');
 const asyncHandler = require('express-async-handler');
-const fs = require('fs');
-const path = require('path');
+const cloudinary = require('../config/cloudinary');
 
 // @desc    Get all documents
 // @route   GET /api/documents
@@ -29,14 +28,14 @@ const getDocumentById = asyncHandler(async (req, res) => {
 // @route   POST /api/documents
 // @access  Private
 const createDocument = asyncHandler(async (req, res) => {
-  const { title, type, description, fileUrl } = req.body;
+  const { title, type, description, fileUrl, publicId } = req.body;
 
   const document = new Document({
     title,
     type,
     description,
     fileUrl,
-    user: req.user._id,
+    publicId,
   });
 
   const createdDocument = await document.save();
@@ -47,15 +46,16 @@ const createDocument = asyncHandler(async (req, res) => {
 // @route   PUT /api/documents/:id
 // @access  Private
 const updateDocument = asyncHandler(async (req, res) => {
-  const { title, type, description, fileUrl } = req.body;
+  const { title, type, description, fileUrl, publicId } = req.body;
 
   const document = await Document.findById(req.params.id);
 
   if (document) {
     document.title = title || document.title;
     document.type = type || document.type;
-    document.description = description || document.description;
+    document.description = description !== undefined ? description : document.description;
     document.fileUrl = fileUrl || document.fileUrl;
+    if (publicId) document.publicId = publicId;
 
     const updatedDocument = await document.save();
     res.json(updatedDocument);
@@ -72,30 +72,21 @@ const deleteDocument = asyncHandler(async (req, res) => {
   const document = await Document.findById(req.params.id);
 
   if (document) {
-    // If there's a file associated with the document, delete it from the server.
-    if (document.fileUrl) {
-      const filename = path.basename(document.fileUrl);
-      const filePath = path.join(__dirname, '..', '..', 'uploads', filename);
-
+    if (document.publicId) {
       try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (err) {
-        console.error(`Failed to delete file: ${filePath}`, err);
-        // We can choose to either stop the process or just log the error and continue.
-        // For now, we'll just log it and proceed with deleting the DB record.
+        await cloudinary.uploader.destroy(document.publicId, { resource_type: 'auto' });
+      } catch (cloudErr) {
+        console.warn('Failed to delete document from Cloudinary:', cloudErr.message);
       }
     }
 
     await document.deleteOne();
-    res.json({ message: 'Document removed' });
+    res.json({ message: 'Document removed successfully' });
   } else {
     res.status(404);
     throw new Error('Document not found');
   }
 });
-
 
 module.exports = {
   getDocuments,

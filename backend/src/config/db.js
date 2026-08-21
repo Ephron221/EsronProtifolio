@@ -3,32 +3,39 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-let isConnected = false;
+let isConnecting = false;
 
 const connectDB = async () => {
-  if (isConnected) {
-    console.log('Using existing database connection');
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  if (isConnecting) {
     return;
   }
 
-  const mode = process.env.DB_MODE || 'local';
-  const dbUri = mode === 'atlas' 
+  const mode = process.env.DB_MODE || (process.env.MONGO_URI ? 'custom' : 'local');
+  const dbUri = process.env.MONGO_URI || (mode === 'atlas' 
     ? process.env.MONGO_ATLAS_URI 
-    : process.env.MONGO_LOCAL_URI;
+    : process.env.MONGO_LOCAL_URI);
 
   if (!dbUri) {
-    console.error(`Error: MongoDB URI for mode "${mode}" is not defined.`);
-    // Don't process.exit(1) on Vercel
+    console.error(`[DB Error]: MongoDB URI is not defined in environment variables.`);
     return;
   }
 
   try {
-    const conn = await mongoose.connect(dbUri);
-    isConnected = true;
-    console.log(`MongoDB Connected (${mode}): ${conn.connection.host}`);
+    isConnecting = true;
+    const conn = await mongoose.connect(dbUri, {
+      serverSelectionTimeoutMS: 5000,
+    });
+    isConnecting = false;
+    console.log(`[Database]: MongoDB Connected successfully (${conn.connection.host})`);
+    return conn;
   } catch (error) {
-    console.error(`Error connecting to ${mode} database: ${error.message}`);
-    // Let the error propagate or handle it in the middleware
+    isConnecting = false;
+    console.error(`[Database Error]: Failed to connect to MongoDB: ${error.message}`);
+    throw error;
   }
 };
 

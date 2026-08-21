@@ -16,14 +16,18 @@ import {
   ExternalLink,
   Bell,
   Search,
-  ShieldCheck
+  ShieldCheck,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
+import { useTheme } from '../../context/ThemeContext';
 
 const DashboardLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isDarkMode, toggleTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [scrolled, setScrolled] = useState(false);
 
@@ -184,6 +188,38 @@ const DashboardLayout = () => {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Theme Mode Switcher */}
+            <button 
+              onClick={toggleTheme}
+              className="p-2.5 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl transition-all border border-gray-200 dark:border-white/5 group relative text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary"
+              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              aria-label="Toggle theme"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {isDarkMode ? (
+                  <motion.div
+                    key="sun"
+                    initial={{ rotate: -90, scale: 0.7, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    exit={{ rotate: 90, scale: 0.7, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Sun size={20} className="text-yellow-400" />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="moon"
+                    initial={{ rotate: 90, scale: 0.7, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    exit={{ rotate: -90, scale: 0.7, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Moon size={20} className="text-gray-700" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </button>
+
             <button className="relative p-2.5 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl transition-all border border-gray-200 dark:border-white/5 group">
               <Bell size={20} className="text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full shadow-[0_0_10px_rgba(0,255,255,0.8)]"></span>

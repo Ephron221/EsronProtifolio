@@ -22,7 +22,7 @@
   }
 
   .glass-dark {
-    @apply bg-white dark:bg-black/40 backdrop-blur-xl border border-gray-200 dark:border-white/5 shadow-sm;
+    @apply bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-2xl transition-all duration-500;
   }
 
   .section-title {
@@ -55,11 +55,21 @@
   @apply bg-primary/20 rounded-full hover:bg-primary/40;
 }
 
-@keyframes pulse-slow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
-.animate-pulse-slow {
-  animation: pulse-slow 3s infinite;
+.animate-bounce-slow {
+  animation: bounce-slow 2s infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.chatbot-float {
+  animation: float 6s ease-in-out infinite;
 }

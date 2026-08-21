@@ -16,7 +16,8 @@ import {
   Lock,
   AlertTriangle
 } from 'lucide-react';
-import api, { BASE_URL } from '../../services/api';
+import api from '../../services/api';
+import { getAssetUrl } from '../../utils/url';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -50,7 +51,8 @@ const ManageDocuments = () => {
     title: '',
     type: 'Certificate',
     description: '',
-    fileUrl: ''
+    fileUrl: '',
+    publicId: ''
   });
   
   const [uploading, setUploading] = useState(false);
@@ -68,11 +70,11 @@ const ManageDocuments = () => {
       const { data } = await api.post('/upload', fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      return data.url;
+      return data;
     },
     {
-      onSuccess: (url) => {
-        setFormData(prev => ({ ...prev, fileUrl: url }));
+      onSuccess: (data) => {
+        setFormData(prev => ({ ...prev, fileUrl: data.url, publicId: data.public_id }));
         setUploading(false);
       },
       onError: () => {
@@ -115,14 +117,15 @@ const ManageDocuments = () => {
       title: doc.title,
       type: doc.type,
       description: doc.description || '',
-      fileUrl: doc.fileUrl
+      fileUrl: doc.fileUrl,
+      publicId: doc.publicId || ''
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const resetForm = () => {
     setEditingId(null);
-    setFormData({ title: '', type: 'Certificate', description: '', fileUrl: '' });
+    setFormData({ title: '', type: 'Certificate', description: '', fileUrl: '', publicId: '' });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,7 +245,7 @@ const ManageDocuments = () => {
                 
                 {(previewDoc.fileUrl && containerWidth > 0) ? (
                   <Document
-                    file={`${BASE_URL}${previewDoc.fileUrl}`}
+                    file={getAssetUrl(previewDoc.fileUrl)}
                     onLoadSuccess={onDocumentLoadSuccess}
                     onLoadError={onDocumentLoadError}
                     loading={<LoadingSpinner />}

@@ -1,20 +1,16 @@
 const CV = require('../models/CV');
 const asyncHandler = require('express-async-handler');
-const fs = require('fs');
-const path = require('path');
+const cloudinary = require('../config/cloudinary');
 
 // @desc    Get the single CV
 // @route   GET /api/cv
 // @access  Public
 const getCV = asyncHandler(async (req, res) => {
-  // Using findOne() ensures that we always get a single object or null.
   const cv = await CV.findOne({}); 
   
   if (cv) {
     res.json(cv);
   } else {
-    // It's better to send a 404 if no CV is found, but for now,
-    // returning an empty object is safer for the existing frontend.
     res.status(404).json({ message: 'No CV has been uploaded.' });
   }
 });
@@ -28,19 +24,34 @@ const uploadCV = asyncHandler(async (req, res) => {
     throw new Error('No file uploaded.');
   }
 
-  // There should only ever be one CV document in the collection.
-  // Find it and update it, or create a new one if it doesn't exist.
+  // Upload buffer to Cloudinary
+  const fileBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+  const uploadResult = await cloudinary.uploader.upload(fileBase64, {
+    folder: 'portfolio/cv',
+    resource_type: 'auto',
+    public_id: `cv_${Date.now()}`,
+  });
+
   let cv = await CV.findOne({});
 
   if (cv) {
-    // Update existing CV
-    cv.fileUrl = `/uploads/${req.file.filename}`;
+    // Attempt to destroy old Cloudinary asset if publicId exists
+    if (cv.publicId) {
+      try {
+        await cloudinary.uploader.destroy(cv.publicId, { resource_type: 'auto' });
+      } catch (cloudErr) {
+        console.warn('Failed to delete old CV from Cloudinary:', cloudErr.message);
+      }
+    }
+
+    cv.fileUrl = uploadResult.secure_url;
+    cv.publicId = uploadResult.public_id;
     cv.lastUpdated = Date.now();
   } else {
-    // Create new CV
     cv = new CV({
-      fileUrl: `/uploads/${req.file.filename}`,
-      user: req.user._id, // Assuming you have a user associated with the CV
+      fileUrl: uploadResult.secure_url,
+      publicId: uploadResult.public_id,
+      lastUpdated: Date.now()
     });
   }
 
@@ -55,23 +66,16 @@ const deleteCV = asyncHandler(async (req, res) => {
   const cv = await CV.findOne({});
 
   if (cv) {
-    // Extract the file name from the URL
-    const filename = path.basename(cv.fileUrl);
-    const filePath = path.join(__dirname, '..', '..', 'uploads', filename);
-
-    // Use a try-catch block to handle file system errors
-    try {
-      // Check if the file exists before attempting to delete it
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    if (cv.publicId) {
+      try {
+        await cloudinary.uploader.destroy(cv.publicId, { resource_type: 'auto' });
+      } catch (cloudErr) {
+        console.warn('Failed to delete CV from Cloudinary:', cloudErr.message);
       }
-      
-      await cv.deleteOne();
-      res.json({ message: 'CV removed' });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Error removing CV file' });
     }
+
+    await cv.deleteOne();
+    res.json({ message: 'CV removed successfully' });
   } else {
     res.status(404);
     throw new Error('CV not found');

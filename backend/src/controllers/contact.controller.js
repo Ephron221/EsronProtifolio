@@ -10,12 +10,13 @@ const getContacts = async (req, res) => {
 };
 
 const createContact = async (req, res) => {
-  const { name, email, subject, message } = req.body;
+  const { name, email, phone, subject, message } = req.body;
 
   try {
     const contact = await Contact.create({
       name,
       email,
+      phone,
       subject,
       message
     });

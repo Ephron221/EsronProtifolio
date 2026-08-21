@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, Mail, User, Calendar, MessageSquare, AlertCircle } from 'lucide-react';
+import { Trash2, Mail, User, Calendar, MessageSquare, AlertCircle, Phone } from 'lucide-react';
 import api from '../../services/api';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
@@ -8,6 +8,7 @@ interface ContactMessage {
   _id: string;
   name: string;
   email: string;
+  phone: string;
   subject: string;
   message: string;
   createdAt: string;
@@ -65,9 +66,15 @@ const ManageContacts = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">{msg.name}</h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <Mail size={14} className="text-primary" />
-                    <span>{msg.email}</span>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <Mail size={14} className="text-primary" />
+                      <span>{msg.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone size={14} className="text-primary" />
+                      <span>{msg.phone}</span>
+                    </div>
                   </div>
                 </div>
               </div>

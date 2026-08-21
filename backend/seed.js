@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const connectDB = require('./src/config/db');
 const User = require('./src/models/User');
 const dotenv = require('dotenv');
 
@@ -6,36 +6,37 @@ dotenv.config();
 
 const seedAdmin = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await connectDB();
     
-    // Remove the old incorrect user if it exists
+    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@esron.io').toLowerCase().trim();
+    const adminPassword = process.env.ADMIN_PASSWORD || 'AdminSecure2026!';
+    const adminName = process.env.ADMIN_NAME || 'Esron Admin';
+
+    // Remove legacy typos if any
     await User.deleteOne({ email: 'esront21@gamil.com' });
     
-    // Check if the correct user already exists
-    const userExists = await User.findOne({ email: 'esront21@gmail.com' });
+    const userExists = await User.findOne({ email: adminEmail });
     
     if (userExists) {
-      // Update password just in case
-      userExists.password = 'Diano21%';
+      userExists.name = adminName;
+      userExists.password = adminPassword;
       await userExists.save();
-      console.log('Admin user updated with correct email (gmail.com).');
+      console.log(`[Seed]: Admin user '${adminEmail}' credentials successfully updated.`);
     } else {
       const admin = new User({
-        name: 'Esron',
-        email: 'esront21@gmail.com',
-        password: 'Diano21%',
+        name: adminName,
+        email: adminEmail,
+        password: adminPassword,
         role: 'admin'
       });
       await admin.save();
-      console.log('Admin user created successfully with correct email (gmail.com)!');
+      console.log(`[Seed]: Admin user '${adminEmail}' successfully created.`);
     }
 
-    console.log('Email: esront21@gmail.com');
-    console.log('Password: Diano21%');
-    
-    process.exit();
+    console.log(`[Seed Summary]: Email: ${adminEmail} (Role: admin)`);
+    process.exit(0);
   } catch (error) {
-    console.error('Error seeding admin:', error);
+    console.error('[Seed Error]: Error seeding admin user:', error.message);
     process.exit(1);
   }
 };

@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { useHome, useProjects, useServices, useSkills, useTestimonials, useDocuments } from '../../hooks/usePortfolio';
-import { BASE_URL } from '../../services/api';
+import { 
+  useHome, 
+  useProjects, 
+  useServices, 
+  useSkills, 
+  useTestimonials, 
+  useDocuments 
+} from '../../hooks/usePortfolio';
+import { getAssetUrl } from '../../utils/url';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { 
   ArrowRight, 
@@ -17,12 +24,34 @@ import {
   Code, 
   Database, 
   Layout, 
-  Star,
-  Quote,
-  Award,
-  ShieldCheck,
-  Eye
+  Star, 
+  Quote, 
+  Award, 
+  ShieldCheck, 
+  Eye, 
+  Sparkles, 
+  CheckCircle2, 
+  Globe, 
+  Lock, 
+  ZoomIn, 
+  ZoomOut, 
+  RotateCw, 
+  X, 
+  MessageSquare, 
+  ChevronRight,
+  Terminal,
+  Cpu,
+  Server
 } from 'lucide-react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import api from '../../services/api';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
+const DEFAULT_PROJECT_IMAGE = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&q=80';
 
 const iconMap: Record<string, any> = {
   Github,
@@ -32,7 +61,10 @@ const iconMap: Record<string, any> = {
   Layers,
   Code,
   Database,
-  Layout
+  Layout,
+  Server,
+  Cpu,
+  Terminal
 };
 
 const Typewriter = ({ texts }: { texts: string[] }) => {
@@ -42,7 +74,7 @@ const Typewriter = ({ texts }: { texts: string[] }) => {
 
   useEffect(() => {
     if (!texts || texts.length === 0) {
-      setDisplayText('Developer');
+      setDisplayText('Full-Stack Engineer');
       return;
     }
 
@@ -56,23 +88,23 @@ const Typewriter = ({ texts }: { texts: string[] }) => {
           setIsDeleting(false);
           setIndex((prev) => (prev + 1) % texts.length);
         }
-      }, 50);
+      }, 40);
     } else {
       timer = setTimeout(() => {
         setDisplayText(currentWord.substring(0, displayText.length + 1));
         if (displayText === currentWord) {
-          setTimeout(() => setIsDeleting(true), 2000);
+          setTimeout(() => setIsDeleting(true), 2200);
         }
-      }, 100);
+      }, 80);
     }
 
     return () => clearTimeout(timer);
   }, [displayText, isDeleting, index, texts]);
 
   return (
-    <div className="flex items-center justify-center lg:justify-start min-h-[60px] md:min-h-[80px]">
-      <span className="text-primary/40 mr-4 text-4xl md:text-6xl font-thin select-none">|</span>
-      <span className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-primary via-cyan-400 to-blue-500 bg-clip-text text-transparent">
+    <div className="flex items-center justify-center lg:justify-start min-h-[50px] md:min-h-[70px]">
+      <span className="text-primary/40 mr-3 text-3xl md:text-5xl font-light select-none">&gt;</span>
+      <span className="text-3xl sm:text-4xl md:text-5xl font-black bg-gradient-to-r from-primary via-cyan-300 to-blue-500 bg-clip-text text-transparent">
         {displayText || '\u00A0'}
         <span className="text-primary animate-pulse ml-1">_</span>
       </span>
@@ -83,12 +115,49 @@ const Typewriter = ({ texts }: { texts: string[] }) => {
 const Home = () => {
   const { data: homeData, isLoading: homeLoading } = useHome();
   const { data: projects, isLoading: projectsLoading } = useProjects();
-  const { data: services, isLoading: servicesLoading } = useServices();
   const { data: skills, isLoading: skillsLoading } = useSkills();
   const { data: testimonials, isLoading: testimonialsLoading } = useTestimonials();
   const { data: documents, isLoading: docsLoading } = useDocuments();
 
-  if (homeLoading || projectsLoading || servicesLoading || skillsLoading || testimonialsLoading || docsLoading) {
+  // Interactive States
+  const [selectedSkillCategory, setSelectedSkillCategory] = useState<string>('Frontend');
+  const [previewDocument, setPreviewDocument] = useState<any | null>(null);
+  const [modalZoom, setModalZoom] = useState<number>(1.0);
+  const [modalRotation, setModalRotation] = useState<number>(0);
+  const [numModalPages, setNumModalPages] = useState<number | null>(null);
+  const [modalContainerWidth, setModalContainerWidth] = useState<number>(600);
+  const modalContainerRef = useRef<HTMLDivElement>(null);
+
+  // Measure modal container for PDF rendering
+  useEffect(() => {
+    if (!previewDocument) return;
+    const container = modalContainerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setModalContainerWidth(Math.floor(entry.contentRect.width));
+        }
+      }
+    });
+
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, [previewDocument]);
+
+  // Handle ESC for modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && previewDocument) {
+        setPreviewDocument(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewDocument]);
+
+  if (homeLoading || projectsLoading || skillsLoading || testimonialsLoading || docsLoading) {
     return <LoadingSpinner />;
   }
 
@@ -96,100 +165,162 @@ const Home = () => {
   
   const heroData = {
     title: homeData?.title || "Hi, I'm Esron",
-    description: homeData?.description || "I build modern, scalable, and interactive digital experiences with passion and precision.",
-    profileImage: homeData?.profileImage ? (homeData.profileImage.startsWith('http') ? homeData.profileImage : `${BASE_URL}${homeData.profileImage}`) : "https://via.placeholder.com/400",
-    roles: validRoles.length > 0 ? validRoles : ["Full-Stack Developer", "Software Architect", "UI/UX Designer"],
-    statistics: homeData?.statistics || [],
-    socialLinks: homeData?.socialLinks || []
+    description: homeData?.description || "I design and build high-performance, scalable web applications with clean architecture and modern digital user experiences.",
+    profileImage: getAssetUrl(homeData?.profileImage, 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&q=80'),
+    roles: validRoles.length > 0 ? validRoles : ["Full-Stack Developer", "Software Architect", "UI/UX Designer", "Cloud Engineer"],
+    statistics: homeData?.statistics || [
+      { label: "Production Builds", value: "25+" },
+      { label: "Years Experience", value: "4+" },
+      { label: "Tech Stack Tools", value: "15+" },
+      { label: "Client Satisfaction", value: "100%" }
+    ],
+    socialLinks: homeData?.socialLinks || [
+      { platform: "Github", url: "https://github.com/Ephron221" },
+      { platform: "Mail", url: "mailto:esront21@gmail.com" }
+    ]
   };
 
-  const featuredProjects = projects?.filter(p => p.featured).slice(0, 3) || [];
+  const featuredProjects = projects?.filter(p => p.featured).slice(0, 3) || projects?.slice(0, 3) || [];
+  const skillCategories = ['Frontend', 'Backend', 'Database', 'Tools'];
 
   return (
-    <div className="space-y-32 pb-32">
-      <section className="relative min-h-[90vh] flex items-center pt-20 overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] animate-pulse delay-700"></div>
+    <div className="space-y-32 pb-32 overflow-hidden">
+      {/* HERO SECTION */}
+      <section className="relative min-h-[92vh] flex items-center pt-24 overflow-hidden">
+        {/* Animated Cyber Glowing Backdrops */}
+        <div className="absolute top-[-5%] right-[-5%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[140px] animate-pulse delay-1000"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-16">
+            
+            {/* Left Content */}
             <motion.div 
-              initial={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: -40 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
-              className="flex-1 text-center lg:text-left"
+              className="flex-1 text-center lg:text-left space-y-6"
             >
-              <motion.span 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="inline-block text-primary font-bold tracking-[0.2em] uppercase mb-6 text-sm py-1 px-3 border border-primary/20 rounded-full bg-primary/5"
-              >
-                Available for new projects
-              </motion.span>
+              {/* Status Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>Available for Full-time Roles & Contracts</span>
+              </div>
               
-              <h1 className="text-6xl md:text-8xl font-black mb-4 leading-none tracking-tighter text-gray-900 dark:text-white">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-none tracking-tight text-gray-900 dark:text-white">
                 {heroData.title}
               </h1>
               
               <Typewriter texts={heroData.roles} />
 
-              <p className="text-xl text-gray-600 dark:text-gray-400 mt-10 mb-12 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto lg:mx-0 leading-relaxed pt-2">
                 {heroData.description}
               </p>
 
-              <div className="flex flex-wrap gap-5 justify-center lg:justify-start mb-12">
-                <Link to="/projects" className="btn-primary flex items-center gap-2 h-14 px-8 group">
-                  Explore Work 
-                  <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-4">
+                <Link 
+                  to="/projects" 
+                  className="px-8 py-4 bg-primary text-black font-black text-sm rounded-2xl hover:bg-cyan-300 transition-all flex items-center gap-2 shadow-lg shadow-primary/25 group"
+                >
+                  <span>Explore Live Projects</span>
+                  <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
                 </Link>
-                <Link to="/cv" className="btn-secondary flex items-center gap-2 h-14 px-8 group">
-                  View CV
-                  <FileText size={20} className="transition-transform group-hover:translate-x-1" />
+
+                <Link 
+                  to="/cv" 
+                  className="px-7 py-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white font-bold text-sm rounded-2xl border border-gray-200 dark:border-white/10 transition-all flex items-center gap-2"
+                >
+                  <FileText size={18} className="text-primary" />
+                  <span>View Protected CV</span>
+                </Link>
+
+                <Link 
+                  to="/documents" 
+                  className="px-6 py-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 font-bold text-sm rounded-2xl border border-gray-200 dark:border-white/10 transition-all flex items-center gap-2"
+                >
+                  <ShieldCheck size={18} className="text-emerald-500" />
+                  <span>Credentials</span>
                 </Link>
               </div>
 
-              <div className="flex justify-center lg:justify-start gap-4">
+              {/* Social Links */}
+              <div className="flex items-center justify-center lg:justify-start gap-3 pt-2">
                 {heroData.socialLinks.map((link: any, i: number) => {
                   const Icon = iconMap[link.platform] || Github;
                   return (
-                    <a key={i} href={link.url} target="_blank" rel="noreferrer" className="p-3 bg-gray-100 dark:bg-white/5 rounded-xl hover:bg-primary hover:text-black transition-all border border-gray-200 dark:border-white/5 hover:border-primary">
-                      <Icon size={20} />
+                    <a 
+                      key={i} 
+                      href={link.url} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="p-3 bg-gray-100 dark:bg-white/5 hover:bg-primary hover:text-black rounded-2xl border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 transition-all shadow-sm"
+                      title={link.platform}
+                    >
+                      <Icon size={18} />
                     </a>
                   );
                 })}
               </div>
             </motion.div>
 
+            {/* Right Profile Showcase with Floating Badges */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1 }}
-              className="flex-1 relative"
+              transition={{ duration: 0.9 }}
+              className="flex-1 relative flex justify-center"
             >
-              <div className="relative w-72 h-72 md:w-[450px] md:h-[450px] mx-auto">
-                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping blur-3xl opacity-20"></div>
-                <div className="relative w-full h-full rounded-3xl border-2 border-primary/30 p-3 overflow-hidden bg-white dark:bg-[#0A0A0A] rotate-3 hover:rotate-0 transition-transform duration-700 shadow-[0_0_50px_rgba(0,255,255,0.1)]">
+              <div className="relative w-72 h-72 sm:w-96 sm:h-96">
+                <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
+                
+                {/* Main Identity Box */}
+                <div className="relative w-full h-full rounded-[40px] border-2 border-primary/40 p-3 bg-white dark:bg-[#0A0A0A] shadow-2xl overflow-hidden group">
                   <img 
                     src={heroData.profileImage} 
                     alt="Esron Profile" 
-                    className="w-full h-full object-cover rounded-2xl grayscale hover:grayscale-0 transition-all duration-700"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&q=80';
+                    }}
+                    className="w-full h-full object-cover rounded-[32px] transition-all duration-700 group-hover:scale-105"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-20 transition-opacity rounded-[32px]" />
                 </div>
+
+                {/* Floating Micro Badges */}
+                <motion.div 
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                  className="absolute -top-4 -left-4 px-4 py-2 bg-white/90 dark:bg-black/90 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl flex items-center gap-2 text-xs font-bold text-gray-900 dark:text-white"
+                >
+                  <Code size={16} className="text-primary" />
+                  <span>Full-Stack Pro</span>
+                </motion.div>
+
+                <motion.div 
+                  animate={{ y: [0, 8, 0] }}
+                  transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut", delay: 1 }}
+                  className="absolute -bottom-4 -right-4 px-4 py-2 bg-white/90 dark:bg-black/90 backdrop-blur-xl border border-primary/40 rounded-2xl shadow-xl flex items-center gap-2 text-xs font-bold text-primary"
+                >
+                  <ShieldCheck size={16} className="text-emerald-400" />
+                  <span>Verified Credentials</span>
+                </motion.div>
               </div>
             </motion.div>
           </div>
 
+          {/* KPI Statistics Row */}
           {heroData.statistics.length > 0 && (
             <motion.div 
-              initial={{ opacity: 0, y: 50 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-8 py-12 px-8 bg-gray-50 dark:glass-dark rounded-[40px] border border-gray-200 dark:border-white/5 shadow-2xl"
+              className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 p-8 bg-white/70 dark:bg-[#0A0A0A]/80 backdrop-blur-2xl rounded-[36px] border border-gray-200 dark:border-white/10 shadow-xl"
             >
               {heroData.statistics.map((stat: any, index: number) => (
-                <div key={index} className="text-center group border-r last:border-r-0 border-gray-200 dark:border-white/10">
-                  <h3 className="text-4xl md:text-5xl font-black text-primary mb-2 group-hover:cyan-glow transition-all">{stat.value}</h3>
-                  <p className="text-gray-500 dark:text-gray-400 uppercase tracking-widest text-xs font-bold">{stat.label}</p>
+                <div key={index} className="text-center group border-r last:border-r-0 border-gray-200 dark:border-white/10 px-4">
+                  <h3 className="text-3xl sm:text-4xl font-black text-primary mb-1 tracking-tight group-hover:scale-105 transition-transform">{stat.value}</h3>
+                  <p className="text-gray-500 dark:text-gray-400 uppercase tracking-widest text-[11px] font-bold">{stat.label}</p>
                 </div>
               ))}
             </motion.div>
@@ -197,99 +328,149 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Services Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-20">
-          <h2 className="section-title">What I <span className="text-primary">Offer</span></h2>
-          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">Providing high-end digital solutions tailored to your business needs.</p>
+      {/* FEATURED PROJECTS SHOWCASE */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+          <div>
+            <span className="text-xs font-black text-primary uppercase tracking-widest">Selected Works</span>
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white mt-1">
+              Featured <span className="text-primary">Live Projects</span>
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+              Interactive systems with live demo links and open source code.
+            </p>
+          </div>
+
+          <Link 
+            to="/projects" 
+            className="px-5 py-2.5 bg-gray-100 dark:bg-white/5 hover:bg-primary hover:text-black rounded-xl text-xs font-bold text-gray-800 dark:text-white border border-gray-200 dark:border-white/10 transition-all flex items-center gap-2 group"
+          >
+            <span>View All ({projects?.length || 0})</span>
+            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {services?.map((service, index) => {
-            const Icon = iconMap[service.icon] || Layers;
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {featuredProjects.map((project, index) => {
+            const imageUrl = getAssetUrl(project.image, DEFAULT_PROJECT_IMAGE);
+
             return (
               <motion.div
-                key={service._id}
+                key={project._id || index}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-gray-50 dark:glass-dark p-10 rounded-[40px] border border-gray-200 dark:border-white/5 hover:border-primary/30 transition-all group shadow-sm hover:shadow-xl"
+                transition={{ delay: index * 0.1 }}
+                className="group bg-white dark:bg-[#0A0A0A] rounded-[32px] overflow-hidden border border-gray-200 dark:border-white/10 hover:border-primary/40 shadow-xl flex flex-col justify-between transition-all duration-500"
               >
-                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-primary transition-colors text-primary group-hover:text-black">
-                  <Icon size={32} />
+                {/* Project Image Banner */}
+                <div className="relative h-52 bg-gray-900 overflow-hidden">
+                  <img
+                    src={imageUrl}
+                    alt={project.title}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = DEFAULT_PROJECT_IMAGE;
+                    }}
+                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-108"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-20 transition-opacity" />
+
+                  {project.featured && (
+                    <div className="absolute top-4 left-4">
+                      <span className="px-2.5 py-1 bg-primary text-black font-black text-[10px] uppercase tracking-wider rounded-lg shadow-md flex items-center gap-1">
+                        <Sparkles size={11} /> Featured
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Hover Buttons */}
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3">
+                    {project.liveDemo && (
+                      <a
+                        href={project.liveDemo}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2.5 bg-primary text-black font-bold text-xs rounded-xl hover:scale-105 transition-all flex items-center gap-1.5 shadow-lg"
+                      >
+                        <Globe size={16} />
+                        <span>Live Demo</span>
+                      </a>
+                    )}
+                    {project.githubLink && (
+                      <a
+                        href={project.githubLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl hover:scale-105 transition-all"
+                        title="GitHub Code"
+                      >
+                        <Github size={18} />
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{service.title}</h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-6">{service.description}</p>
-                <Link to="/contact" className="text-primary font-bold flex items-center gap-2 group/link">
-                  Learn more <ArrowRight size={16} className="transition-transform group-hover/link:translate-x-1" />
-                </Link>
+
+                {/* Project Details */}
+                <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">
+                      {project.title}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-xs leading-relaxed line-clamp-2">
+                      {project.description}
+                    </p>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {project.technologies?.slice(0, 3).map((tech, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 text-[10px] font-bold rounded-md border border-gray-200 dark:border-white/10">
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-white/5">
+                      {project.liveDemo ? (
+                        <a
+                          href={project.liveDemo}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-black text-primary hover:underline flex items-center gap-1.5"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span>Launch Live Demo</span>
+                          <ExternalLink size={12} />
+                        </a>
+                      ) : (
+                        <Link to="/projects" className="text-xs font-bold text-primary">View Project →</Link>
+                      )}
+
+                      {project.githubLink && (
+                        <a href={project.githubLink} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs">
+                          <Github size={16} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             );
           })}
         </div>
       </section>
 
-      {/* Featured Projects Section */}
-      <section className="bg-gray-50 dark:bg-white/5 py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
-            <div>
-              <h2 className="section-title text-left">Featured <span className="text-primary">Work</span></h2>
-              <p className="text-gray-600 dark:text-gray-400">A selection of my most impactful and complex builds.</p>
-            </div>
-            <Link to="/projects" className="btn-secondary flex items-center gap-2 group">
-              View All Projects <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {featuredProjects.map((project, index) => (
-              <motion.div
-                key={project._id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                className="group relative bg-white dark:bg-[#0A0A0A] rounded-[40px] overflow-hidden border border-gray-200 dark:border-white/5 shadow-2xl"
-              >
-                <div className="aspect-[16/10] overflow-hidden">
-                  <img 
-                    src={project.image.startsWith('http') ? project.image : `${BASE_URL}${project.image}`} 
-                    alt={project.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                </div>
-                <div className="p-8">
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {project.technologies.slice(0, 3).map((tech, i) => (
-                      <span key={i} className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-primary/10 text-primary rounded-md border border-primary/20">
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white group-hover:text-primary transition-colors">{project.title}</h3>
-                  <p className="text-gray-600 dark:text-gray-500 text-sm mb-6 line-clamp-2">{project.description}</p>
-                  <div className="flex gap-4">
-                    <a href={project.liveDemo} target="_blank" rel="noreferrer" className="flex-1 flex items-center justify-center gap-2 py-3 bg-gray-900 dark:bg-white text-white dark:text-black font-bold rounded-2xl hover:bg-primary transition-colors">
-                      Live <ExternalLink size={16} />
-                    </a>
-                    <a href={project.githubLink} target="_blank" rel="noreferrer" className="p-3 bg-gray-100 dark:glass rounded-2xl hover:bg-gray-200 dark:hover:bg-white/10 transition-colors dark:text-white">
-                      <Github size={20} />
-                    </a>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Documents Showcase Section */}
+      {/* VERIFIED CREDENTIALS & CERTIFICATIONS (VIEW-ONLY ON BOTH MOBILE & DESKTOP) */}
       {documents && documents.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 border-y border-gray-100 dark:border-white/5">
-          <div className="text-center mb-20">
-            <h2 className="section-title">Certifications & <span className="text-primary">Awards</span></h2>
-            <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">Verified professional credentials and academic achievements.</p>
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+          <div className="text-center space-y-2 max-w-2xl mx-auto">
+            <span className="text-xs font-black text-primary uppercase tracking-widest">Verified Qualifications</span>
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white">
+              Certifications & <span className="text-primary">Credentials</span>
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              All credentials are authentic and rendered securely in protected view-only mode.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -298,136 +479,256 @@ const Home = () => {
                 key={doc._id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-gray-50 dark:glass-dark p-8 rounded-[32px] border border-gray-200 dark:border-white/5 relative group overflow-hidden"
+                transition={{ delay: index * 0.08 }}
+                className="bg-white dark:bg-[#0A0A0A] p-6 rounded-3xl border border-gray-200 dark:border-white/10 hover:border-primary/40 shadow-xl flex flex-col justify-between space-y-6 group"
               >
-                <div className="absolute top-0 right-0 p-6 text-primary/10 group-hover:scale-110 transition-transform">
-                  <ShieldCheck size={80} />
-                </div>
-                
-                <div className="p-3 bg-primary/10 rounded-2xl text-primary w-fit mb-6">
-                  {doc.type === 'Certificate' ? <Award size={24} /> : <FileText size={24} />}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-primary/10 rounded-2xl text-primary group-hover:bg-primary group-hover:text-black transition-colors">
+                      {doc.type === 'Certificate' ? <Award size={24} /> : <FileText size={24} />}
+                    </div>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-widest">
+                      Verified
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors">
+                      {doc.title}
+                    </h3>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-wider mt-1">{doc.type}</p>
+                    <p className="text-gray-500 text-xs mt-2 line-clamp-2">{doc.description || 'Verified academic credential.'}</p>
+                  </div>
                 </div>
 
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">{doc.title}</h3>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-4 block">{doc.type}</span>
-                <p className="text-gray-500 text-xs mb-8 line-clamp-2">{doc.description}</p>
-
-                <Link 
-                  to="/documents"
-                  state={{ docId: doc._id }}
-                  className="w-full py-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-primary group-hover:text-black group-hover:border-primary transition-all"
+                {/* Secure View Trigger Button */}
+                <button
+                  onClick={() => {
+                    setPreviewDocument(doc);
+                    setModalZoom(1.0);
+                    setModalRotation(0);
+                  }}
+                  className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-primary hover:text-black text-gray-900 dark:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border border-gray-200 dark:border-white/10 group-hover:border-primary"
                 >
                   <Eye size={14} />
-                  View Securely
-                </Link>
+                  <span>View Protected Certificate</span>
+                </button>
               </motion.div>
             ))}
           </div>
         </section>
       )}
 
-      {/* Skills / Tech Stack Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-          <div>
-            <h2 className="section-title text-left mb-8">Technical <span className="text-primary">Proficiency</span></h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-10 text-lg leading-relaxed">
-              My expertise spans across the entire development lifecycle, from designing intuitive user interfaces to architecting robust server-side systems and managing scalable databases.
+      {/* TECHNICAL PROFICIENCY & SKILLS */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          {/* Left Column: Interactive Categories */}
+          <div className="lg:col-span-6 space-y-6">
+            <span className="text-xs font-black text-primary uppercase tracking-widest">Core Capabilities</span>
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white">
+              Technical <span className="text-primary">Proficiency</span>
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base leading-relaxed">
+              Engineered with modern best practices, focusing on maintainable code, test-driven reliability, and lightning-fast user experiences.
             </p>
-            <div className="space-y-6">
-              {['Frontend', 'Backend', 'Database'].map((category) => (
-                <div key={category}>
-                  <p className="text-sm font-bold uppercase tracking-widest text-primary mb-4">{category} Stack</p>
-                  <div className="flex flex-wrap gap-3">
-                    {skills?.filter(s => s.category === category).map(skill => (
-                      <span key={skill._id} className="px-5 py-2 bg-gray-100 dark:glass rounded-full text-sm font-medium border border-gray-200 dark:border-white/5 text-gray-800 dark:text-gray-200">
-                        {skill.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+
+            {/* Category Switcher Tabs */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              {skillCategories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedSkillCategory(cat)}
+                  className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all border ${
+                    selectedSkillCategory === cat
+                      ? 'bg-primary text-black border-primary font-black shadow-lg shadow-primary/20'
+                      : 'bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:border-primary/40'
+                  }`}
+                >
+                  {cat} Stack
+                </button>
               ))}
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-6 pt-12">
-              <div className="p-8 bg-gray-50 dark:glass-dark rounded-[40px] border border-gray-200 dark:border-white/5 flex flex-col items-center text-center">
-                <Layout size={40} className="text-primary mb-4" />
-                <h4 className="font-bold text-gray-900 dark:text-white">UI/UX Design</h4>
-              </div>
-              <div className="p-8 bg-gray-50 dark:glass-dark rounded-[40px] border border-gray-200 dark:border-white/5 flex flex-col items-center text-center">
-                <Code size={40} className="text-primary mb-4" />
-                <h4 className="font-bold text-gray-900 dark:text-white">Web Dev</h4>
+
+            {/* Selected Category Skill Badges */}
+            <div className="p-6 bg-white dark:bg-[#0A0A0A] rounded-3xl border border-gray-200 dark:border-white/10 shadow-lg space-y-4">
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                {selectedSkillCategory} Technologies:
+              </h4>
+              <div className="flex flex-wrap gap-2.5">
+                {skills?.filter(s => s.category?.toLowerCase() === selectedSkillCategory.toLowerCase()).map((skill) => (
+                  <div
+                    key={skill._id}
+                    className="px-4 py-2 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white text-xs font-bold rounded-xl border border-gray-200 dark:border-white/10 flex items-center gap-2 hover:border-primary/50 transition-colors"
+                  >
+                    <CheckCircle2 size={14} className="text-primary" />
+                    <span>{skill.name}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="space-y-6">
-              <div className="p-8 bg-gray-50 dark:glass-dark rounded-[40px] border border-gray-200 dark:border-white/5 flex flex-col items-center text-center">
-                <Database size={40} className="text-primary mb-4" />
-                <h4 className="font-bold text-gray-900 dark:text-white">Backend</h4>
-              </div>
-              <div className="p-8 bg-gray-50 dark:glass-dark rounded-[40px] border border-gray-200 dark:border-white/5 flex flex-col items-center text-center">
-                <Layers size={40} className="text-primary mb-4" />
-                <h4 className="font-bold text-gray-900 dark:text-white">Architecture</h4>
-              </div>
+          </div>
+
+          {/* Right Column: Architecture Pillars */}
+          <div className="lg:col-span-6 grid grid-cols-2 gap-4">
+            <div className="p-6 bg-white dark:bg-[#0A0A0A] rounded-3xl border border-gray-200 dark:border-white/10 shadow-xl space-y-3">
+              <div className="p-3 bg-primary/10 text-primary w-fit rounded-2xl"><Layout size={28} /></div>
+              <h4 className="font-bold text-gray-900 dark:text-white text-base">UI/UX & Frontend</h4>
+              <p className="text-gray-500 text-xs leading-relaxed">Responsive, accessible, and intuitive interfaces with smooth Framer Motion animations.</p>
+            </div>
+
+            <div className="p-6 bg-white dark:bg-[#0A0A0A] rounded-3xl border border-gray-200 dark:border-white/10 shadow-xl space-y-3">
+              <div className="p-3 bg-primary/10 text-primary w-fit rounded-2xl"><Server size={28} /></div>
+              <h4 className="font-bold text-gray-900 dark:text-white text-base">Backend & APIs</h4>
+              <p className="text-gray-500 text-xs leading-relaxed">Secure Node.js & Express RESTful services with rate limiting and JWT auth.</p>
+            </div>
+
+            <div className="p-6 bg-white dark:bg-[#0A0A0A] rounded-3xl border border-gray-200 dark:border-white/10 shadow-xl space-y-3">
+              <div className="p-3 bg-primary/10 text-primary w-fit rounded-2xl"><Database size={28} /></div>
+              <h4 className="font-bold text-gray-900 dark:text-white text-base">Database Design</h4>
+              <p className="text-gray-500 text-xs leading-relaxed">Schema modeling, indexing, and high-availability Atlas / PostgreSQL storage.</p>
+            </div>
+
+            <div className="p-6 bg-white dark:bg-[#0A0A0A] rounded-3xl border border-gray-200 dark:border-white/10 shadow-xl space-y-3">
+              <div className="p-3 bg-primary/10 text-primary w-fit rounded-2xl"><ShieldCheck size={28} /></div>
+              <h4 className="font-bold text-gray-900 dark:text-white text-base">Cloud & Security</h4>
+              <p className="text-gray-500 text-xs leading-relaxed">Cloudinary media streaming, Vercel deployments, and production hardening.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      {testimonials && testimonials.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20">
-            <h2 className="section-title">Client <span className="text-primary">Feedback</span></h2>
-            <p className="text-gray-600 dark:text-gray-400">What partners and clients say about our collaboration.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {testimonials.map((t, i) => (
-              <motion.div 
-                key={t._id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                className="p-10 bg-gray-50 dark:glass-dark rounded-[40px] border border-gray-200 dark:border-white/5 relative"
-              >
-                <Quote className="absolute top-8 right-10 text-primary opacity-20" size={48} />
-                <div className="flex gap-1 mb-6">
-                  {[...Array(t.stars)].map((_, idx) => <Star key={idx} size={16} className="fill-primary text-primary" />)}
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 italic mb-8 leading-relaxed">"{t.content}"</p>
-                <div className="flex items-center gap-4">
-                  {t.image && (
-                    <img src={t.image} alt={t.name} className="w-12 h-12 rounded-full object-cover border-2 border-primary" />
-                  )}
+      {/* SECURE IN-PAGE VIEW-ONLY MODAL FOR CERTIFICATES/DOCUMENTS (Mobile & Desktop Safe, Zero Download Prompts) */}
+      <AnimatePresence>
+        {previewDocument && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setPreviewDocument(null)}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md p-3 sm:p-6 lg:p-8 flex items-center justify-center overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0C0C0C] w-full max-w-4xl rounded-[36px] border border-gray-200 dark:border-white/10 shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col"
+            >
+              {/* Modal Header & Zoom Controls */}
+              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.02] flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 rounded-2xl text-primary shrink-0">
+                    <ShieldCheck size={22} />
+                  </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white">{t.name}</h4>
-                    <p className="text-xs text-primary">{t.role}{t.company ? ` @ ${t.company}` : ''}</p>
+                    <h3 className="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate max-w-xs sm:max-w-md">
+                      {previewDocument.title}
+                    </h3>
+                    <p className="text-[10px] font-black uppercase text-primary tracking-widest">
+                      {previewDocument.type} • Protected Canvas
+                    </p>
                   </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-      )}
 
-      {/* CTA Section */}
-      <section className="max-w-5xl mx-auto px-4">
-        <div className="relative bg-gray-900 dark:glass-dark p-12 md:p-20 rounded-[60px] border border-primary/20 overflow-hidden text-center shadow-2xl">
-          <div className="absolute top-0 left-0 w-full h-full bg-primary/5 -z-10"></div>
-          <h2 className="text-4xl md:text-6xl font-black mb-8 text-white">Ready to start your <br /><span className="text-primary">next big project?</span></h2>
-          <p className="text-gray-300 dark:text-gray-400 text-lg mb-12 max-w-xl mx-auto">Let's collaborate to build something exceptional that stands out in the digital landscape.</p>
-          <div className="flex flex-wrap justify-center gap-6">
-            <Link to="/contact" className="btn-primary h-16 px-12 flex items-center gap-2 text-lg">
-              Get In Touch <Send size={20} />
-            </Link>
-            <a href="mailto:esront21@gmail.com" className="h-16 px-12 bg-white/10 dark:glass rounded-2xl flex items-center justify-center font-bold hover:bg-white/20 transition-all text-lg text-white">
-              Send Email
-            </a>
-          </div>
-        </div>
-      </section>
+                {/* Touch-Friendly Zoom Toolbar */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setModalZoom(prev => Math.max(0.6, Number((prev - 0.15).toFixed(2))))}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-gray-700 dark:text-gray-300 transition-colors"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut size={18} />
+                  </button>
+                  <button
+                    onClick={() => setModalZoom(1.0)}
+                    className="px-2.5 py-1 text-xs font-black text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg"
+                    title="Reset Zoom"
+                  >
+                    {Math.round(modalZoom * 100)}%
+                  </button>
+                  <button
+                    onClick={() => setModalZoom(prev => Math.min(2.2, Number((prev + 0.15).toFixed(2))))}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-gray-700 dark:text-gray-300 transition-colors"
+                    title="Zoom In"
+                  >
+                    <ZoomIn size={18} />
+                  </button>
+                  <button
+                    onClick={() => setModalRotation(prev => (prev + 90) % 360)}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-gray-700 dark:text-gray-300 transition-colors"
+                    title="Rotate"
+                  >
+                    <RotateCw size={18} />
+                  </button>
+
+                  <div className="w-[1px] h-5 bg-gray-300 dark:bg-white/10 mx-1"></div>
+
+                  <button
+                    onClick={() => setPreviewDocument(null)}
+                    className="p-2 bg-gray-200 dark:bg-white/10 hover:bg-red-500 hover:text-white rounded-xl text-gray-600 dark:text-gray-300 transition-all"
+                    title="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Secure Document Canvas Body */}
+              <div 
+                ref={modalContainerRef}
+                className="flex-1 bg-zinc-100 dark:bg-zinc-950 p-4 sm:p-8 overflow-auto custom-scrollbar relative flex justify-center items-start min-h-[500px]"
+              >
+                {/* Transparent Security Shield */}
+                <div className="absolute inset-0 z-30 pointer-events-none select-none" onContextMenu={(e) => e.preventDefault()} />
+
+                {previewDocument.fileUrl ? (
+                  <Document
+                    file={getAssetUrl(previewDocument.fileUrl)}
+                    onLoadSuccess={({ numPages }) => setNumModalPages(numPages)}
+                    loading={
+                      <div className="py-24 flex flex-col items-center justify-center gap-3">
+                        <LoadingSpinner />
+                        <span className="text-xs font-semibold text-gray-400">Rendering high-resolution credential canvas...</span>
+                      </div>
+                    }
+                    className="flex flex-col items-center"
+                  >
+                    {Array.from(new Array(numModalPages || 0), (_, index) => (
+                      <div key={`modal_doc_${index + 1}`} className="mb-6 shadow-2xl rounded-xl overflow-hidden">
+                        <Page
+                          pageNumber={index + 1}
+                          width={Math.min(modalContainerWidth - 32, 850)}
+                          scale={modalZoom}
+                          rotate={modalRotation}
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                          className="rounded-xl overflow-hidden border border-gray-200 dark:border-white/10 select-none"
+                          onContextMenu={(e) => e.preventDefault()}
+                        />
+                      </div>
+                    ))}
+                  </Document>
+                ) : (
+                  <div className="py-24 text-center text-gray-400">
+                    <Lock size={36} className="mx-auto mb-2" />
+                    <p className="text-sm font-bold">Document protected or unavailable.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Security Footer */}
+              <div className="p-4 bg-gray-50 dark:bg-white/[0.02] border-t border-gray-200 dark:border-white/10 flex items-center justify-between text-xs text-gray-500 px-6">
+                <span className="flex items-center gap-1.5 text-primary font-bold">
+                  <ShieldCheck size={14} /> View-Only Mode Protected
+                </span>
+                <span className="text-[11px]">Direct download and printing restricted on all browsers</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

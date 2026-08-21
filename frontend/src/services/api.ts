@@ -9,7 +9,7 @@ const cleanApiUrl = rawBaseUrl.replace(/\/+$/, '').endsWith('/api')
   : `${rawBaseUrl.replace(/\/+$/, '')}/api`;
 
 // The BASE_URL for images (without /api)
-export const BASE_URL = cleanApiUrl.replace('/api', '');
+export const BASE_URL = cleanApiUrl.replace(/\/api\/?$/, '');
 
 const api = axios.create({
   baseURL: cleanApiUrl,
@@ -26,5 +26,20 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Add response interceptor to handle 401s
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // If we're on an admin path and get 401, clear token and redirect to login
+      if (window.location.pathname.startsWith('/admin') && window.location.pathname !== '/admin/login') {
+        localStorage.removeItem('token');
+        window.location.href = '/admin/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

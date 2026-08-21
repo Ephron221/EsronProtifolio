@@ -3,10 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Sun, Moon, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
+import { useTheme } from '../../context/ThemeContext';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const { isDarkMode, toggleTheme } = useTheme();
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
 
@@ -17,14 +18,6 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -37,60 +30,86 @@ const Navbar = () => {
 
   return (
     <nav className={clsx(
-      'fixed top-0 w-full z-50 transition-all duration-300',
-      scrolled ? 'glass-dark py-2' : 'bg-transparent py-4'
+      'fixed w-full z-50 transition-all duration-500 ease-in-out',
+      scrolled
+        ? 'top-4 px-4'
+        : 'top-0 px-0'
     )}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className={clsx(
+        'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-500',
+        scrolled
+          ? 'glass-dark rounded-full py-2 shadow-2xl border border-primary/20 max-w-5xl'
+          : 'bg-transparent py-4'
+      )}>
+        <div className="flex items-center justify-between h-14 md:h-16">
           <div className="flex-shrink-0">
-            <Link to="/" className="text-2xl font-bold text-primary cyan-glow">
+            <Link to="/" className="text-xl md:text-2xl font-black tracking-tighter text-primary cyan-glow">
               ESRON
             </Link>
           </div>
           
           <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-8">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.path}
-                  className={clsx(
-                    'px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                    location.pathname === link.path 
-                      ? 'text-primary' 
-                      : 'text-gray-300 hover:text-white'
-                  )}
-                >
-                  {link.name}
-                </Link>
-              ))}
+            <div className="ml-10 flex items-center space-x-1 lg:space-x-4">
+              {navLinks.map((link) => {
+                const isActive = location.pathname === link.path;
+                return (
+                  <Link
+                    key={link.name}
+                    to={link.path}
+                    className={clsx(
+                      'relative px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300',
+                      isActive
+                        ? 'text-black dark:text-black'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary'
+                    )}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="nav-pill"
+                        className="absolute inset-0 bg-primary rounded-full shadow-[0_0_15px_rgba(0,255,255,0.5)]"
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative z-10">{link.name}</span>
+                  </Link>
+                );
+              })}
               
-              <Link 
+              <div className="h-6 w-[1px] bg-gray-300 dark:bg-white/10 mx-2" />
+
+              <Link
                 to="/admin/login" 
-                className="flex items-center gap-1 px-4 py-1.5 rounded-full border border-primary/30 text-primary text-sm font-bold hover:bg-primary hover:text-black transition-all"
+                className="group flex items-center gap-2 px-5 py-2 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-sm font-bold hover:border-primary hover:text-primary transition-all"
               >
-                <Lock size={14} /> CMS
+                <Lock size={14} className="group-hover:scale-110 transition-transform" />
+                <span>CMS</span>
               </Link>
 
               <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2 rounded-full hover:bg-white/10 transition-colors"
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+                className="ml-2 p-2.5 rounded-full hover:bg-primary/10 transition-colors group"
               >
-                {isDarkMode ? <Sun size={20} className="text-primary" /> : <Moon size={20} />}
+                {isDarkMode ? (
+                  <Sun size={18} className="text-primary group-hover:rotate-45 transition-transform" />
+                ) : (
+                  <Moon size={18} className="text-gray-600 dark:text-gray-400 group-hover:-rotate-12 transition-transform" />
+                )}
               </button>
             </div>
           </div>
 
-          <div className="md:hidden flex items-center">
+          <div className="md:hidden flex items-center gap-2">
             <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2 mr-2 rounded-full hover:bg-white/10 transition-colors"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="p-2 rounded-full hover:bg-primary/10 transition-colors"
             >
-              {isDarkMode ? <Sun size={20} className="text-primary" /> : <Moon size={20} />}
+              {isDarkMode ? <Sun size={20} className="text-primary" /> : <Moon size={20} className="text-gray-600" />}
             </button>
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
+              className="p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all"
             >
               {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -102,33 +121,35 @@ const Navbar = () => {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden glass-dark overflow-hidden"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="md:hidden px-4 pt-2"
           >
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+            <div className="glass-dark rounded-3xl overflow-hidden border border-primary/20 shadow-2xl p-2 space-y-1">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
                   onClick={() => setIsOpen(false)}
                   className={clsx(
-                    'block px-3 py-2 rounded-md text-base font-medium',
+                    'block px-4 py-3 rounded-2xl text-base font-semibold transition-all',
                     location.pathname === link.path
-                      ? 'text-primary bg-white/5'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                      ? 'text-black bg-primary shadow-lg shadow-primary/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-primary/10 hover:text-primary'
                   )}
                 >
                   {link.name}
                 </Link>
               ))}
+              <div className="h-[1px] bg-gray-200 dark:bg-white/10 my-2 mx-4" />
               <Link
                 to="/admin/login"
                 onClick={() => setIsOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-bold text-primary hover:bg-white/5"
+                className="flex items-center gap-2 px-4 py-3 rounded-2xl text-base font-bold text-primary hover:bg-primary/10"
               >
-                CMS LOGIN
+                <Lock size={18} />
+                <span>CMS DASHBOARD</span>
               </Link>
             </div>
           </motion.div>

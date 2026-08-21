@@ -5,6 +5,7 @@ import Footer from './components/layout/Footer';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 import Chatbot from './components/common/Chatbot';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Lazy loaded pages
 const Home = lazy(() => import('./pages/public/Home'));
@@ -37,48 +38,50 @@ function App() {
   const isDashboardPath = location.pathname.startsWith('/admin') && location.pathname !== '/admin/login';
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white transition-colors duration-300">
-      {!isDashboardPath && <Navbar />}
-      
-      <main className={!isDashboardPath ? "pt-20" : ""}>
-        <Suspense fallback={<LoadingSpinner />}>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/skills" element={<Skills />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/cv" element={<CVViewer />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/document/:id" element={<DocumentViewer />} />
+    <ThemeProvider>
+      <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white transition-colors duration-300">
+        {!isDashboardPath && <Navbar />}
+        
+        <main className={!isDashboardPath ? "pt-20" : ""}>
+          <Suspense fallback={<LoadingSpinner />}>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/skills" element={<Skills />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/cv" element={<CVViewer />} />
+              <Route path="/documents" element={<Documents />} />
+              <Route path="/document/:id" element={<DocumentViewer />} />
 
-            {/* Admin Auth - Now has Navbar/Footer */}
-            <Route path="/admin/login" element={<Login />} />
+              {/* Admin Auth - Now has Navbar/Footer */}
+              <Route path="/admin/login" element={<Login />} />
 
-            {/* Protected Admin Routes - Dashboard (No Navbar/Footer) */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/admin" element={<DashboardLayout />}>
-                <Route index element={<DashboardOverview />} />
-                <Route path="dashboard" element={<DashboardOverview />} />
-                <Route path="home" element={<ManageHome />} />
-                <Route path="about" element={<ManageAbout />} />
-                <Route path="projects" element={<ManageProjects />} />
-                <Route path="skills" element={<ManageSkills />} />
-                <Route path="services" element={<ManageServices />} />
-                <Route path="contacts" element={<ManageContacts />} />
-                <Route path="cv" element={<ManageCV />} />
-                <Route path="documents" element={<ManageDocuments />} />
+              {/* Protected Admin Routes - Dashboard (No Navbar/Footer) */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/admin" element={<DashboardLayout />}>
+                  <Route index element={<DashboardOverview />} />
+                  <Route path="dashboard" element={<DashboardOverview />} />
+                  <Route path="home" element={<ManageHome />} />
+                  <Route path="about" element={<ManageAbout />} />
+                  <Route path="projects" element={<ManageProjects />} />
+                  <Route path="skills" element={<ManageSkills />} />
+                  <Route path="services" element={<ManageServices />} />
+                  <Route path="contacts" element={<ManageContacts />} />
+                  <Route path="cv" element={<ManageCV />} />
+                  <Route path="documents" element={<ManageDocuments />} />
+                </Route>
               </Route>
-            </Route>
-          </Routes>
-        </Suspense>
-      </main>
-      
-      {!isDashboardPath && <Chatbot />}
-      {!isDashboardPath && <Footer />}
-    </div>
+            </Routes>
+          </Suspense>
+        </main>
+        
+        {!isDashboardPath && <Chatbot />}
+        {!isDashboardPath && <Footer />}
+      </div>
+    </ThemeProvider>
   );
 }
 
