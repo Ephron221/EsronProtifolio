@@ -226,8 +226,9 @@ const ManageCV = () => {
     setPdfError(`Unable to render PDF preview (${error.message}).`);
   };
 
-  // Determine which PDF URL to render (local preview if a new file is picked, or live Cloudinary URL)
-  const activePdfUrl = filePreviewUrl || (cvData?.fileUrl ? getAssetUrl(cvData.fileUrl) : null);
+  // Use the backend proxy endpoint for saved CVs to avoid Cloudinary 401 direct-access errors.
+  // For locally selected (not yet uploaded) files, keep the blob URL for instant preview.
+  const activePdfUrl = filePreviewUrl || (cvData?.fileUrl ? `${api.defaults.baseURL}/cv/file` : null);
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -445,7 +446,7 @@ const ManageCV = () => {
 
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-white/5">
                   <a
-                    href={getAssetUrl(cvData.fileUrl)}
+                    href={`${api.defaults.baseURL}/cv/file`}
                     download="Esron_Tuyishime_CV.pdf"
                     target="_blank"
                     rel="noreferrer"

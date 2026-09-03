@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../services/api';
-import { getAssetUrl } from '../../utils/url';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import {
   Lock,
@@ -81,7 +80,8 @@ const CVViewer = () => {
   }
 
   const cv = Array.isArray(cvData) ? cvData[0] : cvData;
-  const fileUrl = cv?.fileUrl ? getAssetUrl(cv.fileUrl) : '';
+  // Use the backend proxy endpoint to serve the PDF — avoids Cloudinary 401 direct-access errors
+  const fileUrl = cv?.fileUrl ? `${api.defaults.baseURL}/cv/file` : '';
 
   const renderContent = () => {
     if (isLoading) {

@@ -1,6 +1,8 @@
 const CV = require('../models/CV');
 const asyncHandler = require('express-async-handler');
 const cloudinary = require('../config/cloudinary');
+const https = require('https');
+const http = require('http');
 
 // @desc    Get the single CV
 // @route   GET /api/cv
@@ -13,6 +15,40 @@ const getCV = asyncHandler(async (req, res) => {
   } else {
     res.status(404).json({ message: 'No CV has been uploaded.' });
   }
+});
+
+// @desc    Proxy-stream the CV PDF from Cloudinary to avoid 401 direct-access errors
+// @route   GET /api/cv/file
+// @access  Public
+const proxyCV = asyncHandler(async (req, res) => {
+  const cv = await CV.findOne({});
+
+  if (!cv || !cv.fileUrl) {
+    res.status(404);
+    throw new Error('No CV has been uploaded.');
+  }
+
+  const fileUrl = cv.fileUrl;
+  const protocol = fileUrl.startsWith('https') ? https : http;
+
+  protocol.get(fileUrl, (upstream) => {
+    if (upstream.statusCode !== 200) {
+      res.status(upstream.statusCode || 502).json({ message: 'Failed to fetch CV from storage.' });
+      return;
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="Curriculum_Vitae.pdf"');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    if (upstream.headers['content-length']) {
+      res.setHeader('Content-Length', upstream.headers['content-length']);
+    }
+
+    upstream.pipe(res);
+  }).on('error', (err) => {
+    console.error('CV proxy error:', err.message);
+    res.status(502).json({ message: 'Failed to stream CV file.' });
+  });
 });
 
 // @desc    Upload or replace the CV
@@ -28,7 +64,9 @@ const uploadCV = asyncHandler(async (req, res) => {
   const fileBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
   const uploadResult = await cloudinary.uploader.upload(fileBase64, {
     folder: 'portfolio/cv',
-    resource_type: 'auto',
+    resource_type: 'raw',
+    type: 'upload',
+    access_mode: 'public',
     public_id: `cv_${Date.now()}`,
   });
 
@@ -38,7 +76,7 @@ const uploadCV = asyncHandler(async (req, res) => {
     // Attempt to destroy old Cloudinary asset if publicId exists
     if (cv.publicId) {
       try {
-        await cloudinary.uploader.destroy(cv.publicId, { resource_type: 'auto' });
+        await cloudinary.uploader.destroy(cv.publicId, { resource_type: 'raw' });
       } catch (cloudErr) {
         console.warn('Failed to delete old CV from Cloudinary:', cloudErr.message);
       }
@@ -68,7 +106,7 @@ const deleteCV = asyncHandler(async (req, res) => {
   if (cv) {
     if (cv.publicId) {
       try {
-        await cloudinary.uploader.destroy(cv.publicId, { resource_type: 'auto' });
+        await cloudinary.uploader.destroy(cv.publicId, { resource_type: 'raw' });
       } catch (cloudErr) {
         console.warn('Failed to delete CV from Cloudinary:', cloudErr.message);
       }
@@ -82,4 +120,4 @@ const deleteCV = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { getCV, uploadCV, deleteCV };
+module.exports = { getCV, proxyCV, uploadCV, deleteCV };
