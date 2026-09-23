@@ -140,9 +140,8 @@ const ManageDocuments = () => {
     setPdfError(null);
   }
 
-  function onDocumentLoadError(error: Error): void {
-    console.error("Admin PDF Load Error:", error.message);
-    setPdfError(`Failed to load PDF. Message: ${error.message}`);
+  function onDocumentLoadError(err: Error): void {
+    setPdfError(`Failed to load PDF. Message: ${err.message}`);
   }
 
   const handlePreview = (doc: any) => {
@@ -245,7 +244,7 @@ const ManageDocuments = () => {
                 
                 {(previewDoc.fileUrl && containerWidth > 0) ? (
                   <Document
-                    file={getAssetUrl(previewDoc.fileUrl)}
+                    file={previewDoc._id ? `${api.defaults.baseURL}/documents/${previewDoc._id}/file` : getAssetUrl(previewDoc.fileUrl)}
                     onLoadSuccess={onDocumentLoadSuccess}
                     onLoadError={onDocumentLoadError}
                     loading={<LoadingSpinner />}
