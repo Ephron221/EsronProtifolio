@@ -13,10 +13,15 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
     // Convert buffer to base64
     const fileBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
-    // Upload to Cloudinary with resource_type: 'auto' to support PDFs
+    // Determine resource_type:
+    // PDFs MUST use 'raw' on Cloudinary — using 'auto' or 'image' saves them under /image/upload/
+    // which then returns 401 when the backend proxy tries to stream them.
+    const isPdf = req.file.mimetype === 'application/pdf';
+    const resourceType = isPdf ? 'raw' : 'auto';
+
     const result = await cloudinary.uploader.upload(fileBase64, {
       folder: 'portfolio',
-      resource_type: 'auto', // This allows both images and PDFs
+      resource_type: resourceType,
     });
 
     res.status(200).json({

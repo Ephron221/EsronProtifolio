@@ -78,7 +78,25 @@ const proxyDocument = asyncHandler(async (req, res) => {
     throw new Error('Document not found or has no file.');
   }
 
-  streamRemoteFile(document.fileUrl, res);
+  let fileUrl = document.fileUrl;
+
+  // Guard 1: Reject legacy local file paths (e.g., /uploads/...) that don't exist on Vercel
+  if (fileUrl.startsWith('/uploads/') || !fileUrl.startsWith('http')) {
+    res.status(404).json({
+      message: 'This document was uploaded to the old local server and is no longer available. Please re-upload the PDF file.'
+    });
+    return;
+  }
+
+  // Guard 2: Cloudinary PDFs must be accessed via /raw/upload/, not /image/upload/.
+  // When resource_type: 'auto' is used and the file is a PDF, Cloudinary may store it under
+  // /image/upload/ but then returns 401 when you try to stream it. Force the correct path.
+  if (fileUrl.includes('cloudinary.com') && fileUrl.includes('/image/upload/')) {
+    fileUrl = fileUrl.replace('/image/upload/', '/raw/upload/');
+    console.log(`[document proxy] Normalized Cloudinary URL to raw type: ${fileUrl}`);
+  }
+
+  streamRemoteFile(fileUrl, res);
 });
 
 // @desc    Create a document

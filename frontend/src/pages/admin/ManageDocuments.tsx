@@ -338,7 +338,24 @@ const ManageDocuments = () => {
                   {[...Array(15)].map((_, i) => (<span key={i} className="text-5xl font-black whitespace-nowrap text-gray-900 dark:text-white uppercase">ESRON PREVIEW</span>))}
                 </div>
                 
-                {(previewDoc.fileUrl && containerWidth > 0) ? (
+                {/* Detect legacy local file paths that won't load */}
+                {previewDoc.fileUrl && (previewDoc.fileUrl.startsWith('/uploads/') || !previewDoc.fileUrl.startsWith('http')) ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-12 text-center">
+                    <div className="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6">
+                      <AlertTriangle size={36} className="text-amber-500" />
+                    </div>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Legacy File Detected</h4>
+                    <p className="text-sm text-gray-500 max-w-sm mb-6">
+                      This document was stored on the old local server and is no longer accessible. Please re-upload the PDF file to make it available.
+                    </p>
+                    <button
+                      onClick={() => { setPreviewDoc(null); handleEdit(previewDoc); }}
+                      className="px-6 py-3 bg-primary text-black font-bold rounded-2xl hover:bg-cyan-300 transition-all text-sm flex items-center gap-2"
+                    >
+                      <Upload size={16} /> Re-upload this Document
+                    </button>
+                  </div>
+                ) : (previewDoc.fileUrl && containerWidth > 0) ? (
                   <Document
                     file={previewDoc._id ? `${api.defaults.baseURL}/documents/${previewDoc._id}/file` : getAssetUrl(previewDoc.fileUrl)}
                     onLoadSuccess={onDocumentLoadSuccess}
@@ -356,6 +373,12 @@ const ManageDocuments = () => {
                         <AlertTriangle size={32} /> 
                         <p className="font-bold text-sm">{pdfError}</p>
                         <p className="text-xs opacity-80 max-w-sm mt-1">This usually means the file could not be fetched from the secure storage. Please check if the file exists or try re-uploading.</p>
+                        <button
+                          onClick={() => { setPreviewDoc(null); handleEdit(previewDoc); }}
+                          className="mt-2 px-4 py-2 bg-primary text-black font-bold rounded-xl text-xs hover:bg-cyan-300 transition-all flex items-center gap-1.5"
+                        >
+                          <Upload size={14} /> Re-upload File
+                        </button>
                       </div>
                     ) : (
                       Array.from(new Array(numPages), (el, index) => (
