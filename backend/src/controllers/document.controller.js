@@ -1,6 +1,49 @@
 const Document = require('../models/Document');
 const asyncHandler = require('express-async-handler');
 const cloudinary = require('../config/cloudinary');
+const https = require('https');
+const http = require('http');
+
+/**
+ * Helper: Follow redirects and stream a remote URL to the Express response.
+ * Handles 301/302 redirects from Cloudinary raw assets.
+ */
+function streamRemoteFile(url, res, depth = 0) {
+  if (depth > 5) {
+    res.status(502).json({ message: 'Too many redirects when fetching document.' });
+    return;
+  }
+
+  const protocol = url.startsWith('https') ? https : http;
+  protocol.get(url, (upstream) => {
+    const { statusCode, headers } = upstream;
+
+    // Follow redirects
+    if ((statusCode === 301 || statusCode === 302 || statusCode === 307 || statusCode === 308) && headers.location) {
+      upstream.resume(); // drain the response
+      return streamRemoteFile(headers.location, res, depth + 1);
+    }
+
+    if (statusCode !== 200) {
+      res.status(statusCode || 502).json({ message: 'Failed to fetch document from storage.' });
+      return;
+    }
+
+    res.setHeader('Content-Type', headers['content-type'] || 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    if (headers['content-length']) {
+      res.setHeader('Content-Length', headers['content-length']);
+    }
+
+    upstream.pipe(res);
+  }).on('error', (err) => {
+    console.error('Document proxy error:', err.message);
+    if (!res.headersSent) {
+      res.status(502).json({ message: 'Failed to stream document file.' });
+    }
+  });
+}
 
 // @desc    Get all documents
 // @route   GET /api/documents
@@ -22,6 +65,20 @@ const getDocumentById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Document not found');
   }
+});
+
+// @desc    Proxy-stream a document PDF from Cloudinary to avoid 401 direct-access errors
+// @route   GET /api/documents/:id/file
+// @access  Public
+const proxyDocument = asyncHandler(async (req, res) => {
+  const document = await Document.findById(req.params.id);
+
+  if (!document || !document.fileUrl) {
+    res.status(404);
+    throw new Error('Document not found or has no file.');
+  }
+
+  streamRemoteFile(document.fileUrl, res);
 });
 
 // @desc    Create a document
@@ -91,7 +148,9 @@ const deleteDocument = asyncHandler(async (req, res) => {
 module.exports = {
   getDocuments,
   getDocumentById,
+  proxyDocument,
   createDocument,
   updateDocument,
   deleteDocument,
 };
+

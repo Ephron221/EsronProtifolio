@@ -4,6 +4,47 @@ const cloudinary = require('../config/cloudinary');
 const https = require('https');
 const http = require('http');
 
+/**
+ * Helper: Follow redirects and stream a remote URL to the Express response.
+ * Cloudinary raw resources may redirect — this handles up to 5 hops.
+ */
+function streamRemoteFile(url, res, depth = 0) {
+  if (depth > 5) {
+    res.status(502).json({ message: 'Too many redirects when fetching CV.' });
+    return;
+  }
+
+  const protocol = url.startsWith('https') ? https : http;
+  protocol.get(url, (upstream) => {
+    const { statusCode, headers } = upstream;
+
+    // Follow redirects (301, 302, 307, 308)
+    if ((statusCode === 301 || statusCode === 302 || statusCode === 307 || statusCode === 308) && headers.location) {
+      upstream.resume(); // drain the response body so the socket can be reused
+      return streamRemoteFile(headers.location, res, depth + 1);
+    }
+
+    if (statusCode !== 200) {
+      res.status(statusCode || 502).json({ message: 'Failed to fetch CV from storage.' });
+      return;
+    }
+
+    res.setHeader('Content-Type', headers['content-type'] || 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="Curriculum_Vitae.pdf"');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    if (headers['content-length']) {
+      res.setHeader('Content-Length', headers['content-length']);
+    }
+
+    upstream.pipe(res);
+  }).on('error', (err) => {
+    console.error('CV proxy error:', err.message);
+    if (!res.headersSent) {
+      res.status(502).json({ message: 'Failed to stream CV file.' });
+    }
+  });
+}
+
 // @desc    Get the single CV
 // @route   GET /api/cv
 // @access  Public
@@ -28,28 +69,9 @@ const proxyCV = asyncHandler(async (req, res) => {
     throw new Error('No CV has been uploaded.');
   }
 
-  const fileUrl = cv.fileUrl;
-  const protocol = fileUrl.startsWith('https') ? https : http;
-
-  protocol.get(fileUrl, (upstream) => {
-    if (upstream.statusCode !== 200) {
-      res.status(upstream.statusCode || 502).json({ message: 'Failed to fetch CV from storage.' });
-      return;
-    }
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="Curriculum_Vitae.pdf"');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    if (upstream.headers['content-length']) {
-      res.setHeader('Content-Length', upstream.headers['content-length']);
-    }
-
-    upstream.pipe(res);
-  }).on('error', (err) => {
-    console.error('CV proxy error:', err.message);
-    res.status(502).json({ message: 'Failed to stream CV file.' });
-  });
+  streamRemoteFile(cv.fileUrl, res);
 });
+
 
 // @desc    Upload or replace the CV
 // @route   POST /api/cv/upload

@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getDocuments,
   getDocumentById,
+  proxyDocument,
   createDocument,
   updateDocument,
   deleteDocument,
@@ -11,10 +12,14 @@ const { protect } = require('../middleware/auth.middleware');
 
 router.route('/').get(getDocuments).post(protect, createDocument);
 
+// Proxy endpoint to stream PDFs server-side (avoids Cloudinary 401 in browser)
+router.route('/:id/file').get(proxyDocument);
+
 router
   .route('/:id')
-  .get(getDocumentById) // Changed from just get(protect, getDocumentById)
+  .get(getDocumentById)
   .put(protect, updateDocument)
   .delete(protect, deleteDocument);
 
 module.exports = router;
+

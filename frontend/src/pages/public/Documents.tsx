@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocuments } from '../../hooks/usePortfolio';
-import { getAssetUrl } from '../../utils/url';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import api from '../../services/api';
 import { 
   ShieldCheck, 
   Award, 
@@ -94,7 +94,10 @@ const Documents = () => {
     doc.type.toLowerCase().includes(search.toLowerCase())
   ) || [];
 
-  const activePdfUrl = selectedDoc?.fileUrl ? getAssetUrl(selectedDoc.fileUrl) : null;
+  // Route PDFs through our backend proxy to avoid Cloudinary 401 errors in the browser
+  const activePdfUrl = selectedDoc?._id
+    ? `${api.defaults.baseURL}/documents/${selectedDoc._id}/file`
+    : null;
 
   return (
     <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 lg:px-8 bg-white dark:bg-black transition-colors duration-500">

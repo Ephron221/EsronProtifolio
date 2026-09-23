@@ -47,10 +47,12 @@ const CVViewer = () => {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Fetch CV data
+  // Fetch CV data — a 404 just means no CV has been uploaded yet (not a real error)
   const { data: cvData, isLoading, isError, error } = useQuery(['cv'], async () => {
     const response = await api.get('/cv');
     return response.data;
+  }, {
+    retry: false, // don't retry on 404
   });
 
   // Strict View-Only Anti-Download & Anti-Print protections
@@ -94,6 +96,19 @@ const CVViewer = () => {
     }
 
     if (isError) {
+      // Check if it's simply "no CV uploaded" (404) vs a real server error
+      const is404 = (error as any)?.response?.status === 404;
+      if (is404) {
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center">
+            <Lock size={40} className="mb-3 text-gray-500" />
+            <p className="font-bold text-base text-gray-800 dark:text-gray-200">No CV Uploaded Yet</p>
+            <p className="text-xs text-gray-500 mt-1 max-w-sm">
+              The curriculum vitae has not been uploaded yet. Please check back soon or contact Esron directly.
+            </p>
+          </div>
+        );
+      }
       return (
         <div className="w-full h-full flex flex-col items-center justify-center text-red-500 p-8 text-center">
           <AlertTriangle size={36} className="mb-2" />
@@ -107,7 +122,10 @@ const CVViewer = () => {
       return (
         <div className="w-full h-full flex flex-col items-center justify-center text-red-500 p-8 text-center">
           <AlertTriangle size={36} className="mb-2" />
-          <p className="font-bold">{pdfError}</p>
+          <p className="font-bold text-base">CV Preview Unavailable</p>
+          <p className="text-xs text-red-400 mt-1 max-w-sm">
+            Unable to render the CV preview. This may be a temporary server issue. Please try refreshing or contact Esron directly.
+          </p>
         </div>
       );
     }
