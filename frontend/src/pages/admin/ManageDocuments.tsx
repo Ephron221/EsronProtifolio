@@ -1,20 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
-  Save, 
-  Plus, 
-  Trash2, 
-  FileText, 
-  ShieldCheck, 
-  Upload, 
-  Award,
-  CheckCircle2,
-  X,
-  Pencil,
-  Eye,
-  RefreshCcw,
-  Lock,
-  AlertTriangle
+  Save, Plus, Trash2, FileText, ShieldCheck, Upload, Award,
+  CheckCircle2, X, Pencil, Eye, RefreshCcw, Lock, AlertTriangle, File
 } from 'lucide-react';
 import api from '../../services/api';
 import { getAssetUrl } from '../../utils/url';
@@ -57,6 +45,7 @@ const ManageDocuments = () => {
   
   const [uploading, setUploading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { data: documents, isLoading } = useQuery(['documents'], async () => {
     const { data } = await api.get('/documents');
@@ -66,7 +55,7 @@ const ManageDocuments = () => {
   const uploadMutation = useMutation(
     async (file: File) => {
       const fd = new FormData();
-      fd.append('image', file);
+      fd.append('image', file); // Backend expects 'image' field for cloudinary upload
       const { data } = await api.post('/upload', fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -79,7 +68,7 @@ const ManageDocuments = () => {
       },
       onError: () => {
         setUploading(false);
-        alert('Upload failed');
+        alert('Upload failed. Ensure the backend accepts this file type.');
       }
     }
   );
@@ -128,10 +117,17 @@ const ManageDocuments = () => {
     setFormData({ title: '', type: 'Certificate', description: '', fileUrl: '', publicId: '' });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+    let file;
+    if ('dataTransfer' in e) {
+      file = e.dataTransfer.files?.[0];
+    } else {
+      file = e.target.files?.[0];
+    }
+    
+    if (file) {
       setUploading(true);
-      uploadMutation.mutate(e.target.files[0]);
+      uploadMutation.mutate(file);
     }
   };
   
@@ -145,101 +141,201 @@ const ManageDocuments = () => {
   }
 
   const handlePreview = (doc: any) => {
-    setPdfError(null); // Reset error state on new preview
+    setPdfError(null);
     setPreviewDoc(doc);
   };
 
   if (isLoading) return <LoadingSpinner />;
 
   return (
-    <div className="max-w-6xl mx-auto pb-20 px-4 relative">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+    <div className="max-w-7xl mx-auto pb-20 px-4 sm:px-6 lg:px-8 relative min-h-screen">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pt-6">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-primary to-gray-500 bg-clip-text text-transparent">Document Center</h1>
-          <p className="text-gray-400 mt-2">Manage your protected credentials.</p>
+          <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">Document Center</h1>
+          <p className="text-gray-500 mt-2 text-sm">Manage your protected credentials and certificates.</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-xs font-bold border border-primary/20">
+        <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-xs font-bold border border-primary/20 shadow-sm shadow-primary/5">
           <ShieldCheck size={14} /> <span>Security System Active</span>
         </div>
       </div>
 
+      {/* Floating Success Toast */}
       <AnimatePresence>
         {showSuccess && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="mb-8 p-4 bg-secondary-success/20 border border-secondary-success/30 rounded-2xl flex items-center gap-3 text-secondary-success">
-            <CheckCircle2 size={20} /> <span className="font-semibold">{editingId ? 'Document updated!' : 'Document added!'}</span>
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }} 
+            animate={{ opacity: 1, y: 0, scale: 1 }} 
+            exit={{ opacity: 0, y: 20, scale: 0.9 }} 
+            className="fixed bottom-10 right-10 z-50 p-4 bg-emerald-500 text-white shadow-2xl rounded-2xl flex items-center gap-3 font-semibold"
+          >
+            <CheckCircle2 size={24} /> 
+            <span>{editingId ? 'Document updated successfully!' : 'Document created successfully!'}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
-          <div className="glass-dark p-8 rounded-[40px] border border-white/5 shadow-2xl sticky top-24">
-            <h2 className="text-xl font-bold mb-6 flex items-center gap-3 text-white">
-              {editingId ? <Pencil size={22} className="text-primary" /> : <Plus size={22} className="text-primary" />}
-              {editingId ? 'Edit Document' : 'New Document'}
-            </h2>
-            <div className="space-y-5">
-              <input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 outline-none focus:border-primary/50 text-sm" placeholder="Title" />
-              <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 outline-none focus:border-primary/50 text-sm text-gray-300">
-                <option value="Certificate">Certificate</option>
-                <option value="Transcript">Transcript</option>
-                <option value="Other">Other Award</option>
-              </select>
-              <textarea rows={3} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 outline-none focus:border-primary/50 text-sm resize-none" placeholder="Description"></textarea>
-              <div onClick={() => fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${formData.fileUrl ? 'border-primary/50 bg-primary/5' : 'border-white/10 hover:border-primary/30'}`}>
-                {uploading ? <RefreshCcw className="mx-auto animate-spin text-primary" /> : formData.fileUrl ? <ShieldCheck className="mx-auto text-primary" size={32} /> : <Upload className="mx-auto text-gray-500" size={32} />}
-                <p className="text-[10px] mt-2 font-bold uppercase tracking-widest text-gray-500">{formData.fileUrl ? 'File Secured' : 'Upload File'}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* LEFT COLUMN: FORM */}
+        <div className="lg:col-span-4">
+          <div className="bg-white dark:bg-[#0A0A0A] p-6 sm:p-8 rounded-[36px] border border-gray-200 dark:border-white/10 shadow-xl sticky top-24">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-900 dark:text-white">
+              <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                {editingId ? <Pencil size={20} /> : <Plus size={20} />}
               </div>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf" />
-              <div className="flex gap-3">
-                {editingId && <button onClick={resetForm} className="flex-1 py-4 bg-white/5 text-white font-bold rounded-2xl hover:bg-white/10 transition-all">Cancel</button>}
-                <button onClick={() => saveMutation.mutate(formData)} disabled={!formData.title || !formData.fileUrl || saveMutation.isLoading} className="flex-[2] py-4 bg-primary text-black font-black rounded-2xl hover:shadow-[0_0_20px_rgba(0,255,255,0.3)] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {saveMutation.isLoading ? <LoadingSpinner /> : <><Save size={18} /> {editingId ? 'Update' : 'Save'}</>}
+              {editingId ? 'Edit Document' : 'Add New Document'}
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider">Title</label>
+                <input 
+                  type="text" 
+                  value={formData.title} 
+                  onChange={(e) => setFormData({...formData, title: e.target.value})} 
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl px-5 py-3.5 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-sm text-gray-900 dark:text-white transition-all shadow-sm" 
+                  placeholder="e.g. AWS Certified Solutions Architect" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider">Type</label>
+                <select 
+                  value={formData.type} 
+                  onChange={(e) => setFormData({...formData, type: e.target.value})} 
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl px-5 py-3.5 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-sm text-gray-900 dark:text-white transition-all shadow-sm appearance-none"
+                >
+                  <option value="Certificate">Certificate</option>
+                  <option value="Transcript">Transcript</option>
+                  <option value="Other">Other Award</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider">Description</label>
+                <textarea 
+                  rows={3} 
+                  value={formData.description} 
+                  onChange={(e) => setFormData({...formData, description: e.target.value})} 
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl px-5 py-3.5 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-sm text-gray-900 dark:text-white transition-all shadow-sm resize-none" 
+                  placeholder="Brief details about this credential..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider">Document File (PDF)</label>
+                <div 
+                  onClick={() => !uploading && fileInputRef.current?.click()} 
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                  onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileChange(e); }}
+                  className={`border-2 border-dashed rounded-3xl p-8 text-center cursor-pointer transition-all duration-300 relative overflow-hidden ${
+                    isDragging ? 'border-primary bg-primary/10' :
+                    formData.fileUrl ? 'border-primary/40 bg-primary/5 hover:bg-primary/10' : 
+                    'border-gray-300 dark:border-white/20 bg-gray-50 dark:bg-white/5 hover:border-primary/50'
+                  } ${uploading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+                >
+                  {uploading ? (
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <RefreshCcw className="animate-spin text-primary" size={32} />
+                      <span className="text-xs font-bold text-primary">Uploading Securely...</span>
+                    </div>
+                  ) : formData.fileUrl ? (
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-16 h-16 rounded-2xl bg-white dark:bg-black shadow-lg flex items-center justify-center border border-gray-100 dark:border-white/10 mb-2">
+                        <FileText className="text-primary" size={32} />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">PDF Secured</span>
+                      <span className="text-[10px] text-gray-500 font-medium">Click to replace file</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center mb-1 transition-transform group-hover:scale-110">
+                        <Upload className="text-gray-500 dark:text-gray-400" size={28} />
+                      </div>
+                      <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Drop PDF here</span>
+                      <span className="text-xs text-gray-400">or click to browse</span>
+                    </div>
+                  )}
+                </div>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="application/pdf" />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                {editingId && (
+                  <button 
+                    onClick={resetForm} 
+                    className="flex-1 py-4 bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 font-bold rounded-2xl hover:bg-gray-200 dark:hover:bg-white/10 transition-all text-sm"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button 
+                  onClick={() => saveMutation.mutate(formData)} 
+                  disabled={!formData.title || !formData.fileUrl || saveMutation.isLoading || uploading} 
+                  className="flex-[2] py-4 bg-primary text-black font-black rounded-2xl hover:bg-cyan-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all disabled:opacity-50 disabled:hover:shadow-none flex items-center justify-center gap-2 text-sm"
+                >
+                  {saveMutation.isLoading ? <LoadingSpinner /> : <><Save size={18} /> {editingId ? 'Update Document' : 'Save Document'}</>}
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {documents?.map((doc: any) => (
-            <div key={doc._id} className="glass-dark p-6 rounded-[32px] border border-white/5 flex flex-col group hover:border-primary/20 transition-all">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Award size={24} /></div>
-                <div className="flex gap-1">
-                  <button onClick={() => handlePreview(doc)} className="p-2 text-gray-500 hover:text-primary transition-colors" title="Preview"><Eye size={18} /></button>
-                  <button onClick={() => handleEdit(doc)} className="p-2 text-gray-500 hover:text-blue-500 transition-colors" title="Edit"><Pencil size={18} /></button>
-                  <button onClick={() => handleDelete(doc._id)} className="p-2 text-gray-500 hover:text-red-500 transition-colors" title="Delete"><Trash2 size={18} /></button>
-                </div>
-              </div>
-              <h3 className="font-bold text-lg mb-1">{doc.title}</h3>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-3 block">{doc.type}</span>
-              <p className="text-gray-500 text-xs line-clamp-2 a-clamp-2">{doc.description}</p>
+        {/* RIGHT COLUMN: DOCUMENT LIST */}
+        <div className="lg:col-span-8">
+          {documents?.length === 0 ? (
+            <div className="bg-white dark:bg-[#0A0A0A] border border-gray-200 dark:border-white/10 rounded-[36px] p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
+              <File size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No documents yet</h3>
+              <p className="text-gray-500 text-sm max-w-sm">Upload your first certificate or transcript using the form on the left.</p>
             </div>
-          ))}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {documents?.map((doc: any) => (
+                <div key={doc._id} className="bg-white dark:bg-[#0A0A0A] p-6 sm:p-8 rounded-[32px] border border-gray-200 dark:border-white/10 flex flex-col group hover:border-primary/40 hover:shadow-2xl transition-all duration-300">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="p-3.5 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl text-primary group-hover:bg-primary group-hover:text-black transition-colors">
+                      {doc.type === 'Certificate' ? <Award size={24} /> : <FileText size={24} />}
+                    </div>
+                    <div className="flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handlePreview(doc)} className="p-2 bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:bg-primary hover:text-black rounded-lg transition-colors" title="Preview"><Eye size={16} /></button>
+                      <button onClick={() => handleEdit(doc)} className="p-2 bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:bg-blue-500 hover:text-white rounded-lg transition-colors" title="Edit"><Pencil size={16} /></button>
+                      <button onClick={() => handleDelete(doc._id)} className="p-2 bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:bg-red-500 hover:text-white rounded-lg transition-colors" title="Delete"><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1.5 line-clamp-1">{doc.title}</h3>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-4 block">{doc.type}</span>
+                  <p className="text-gray-500 text-sm line-clamp-2 mt-auto">{doc.description || 'No description provided.'}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* --- DEFINITIVE PDF VIEWER MODAL --- */}
+      {/* --- SECURE PDF PREVIEW MODAL --- */}
       <AnimatePresence>
         {previewDoc && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10" onContextMenu={(e) => e.preventDefault()}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPreviewDoc(null)} className="absolute inset-0 bg-black/90 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative w-full max-w-5xl h-full max-h-[90vh] glass-dark rounded-[40px] border border-white/10 overflow-hidden flex flex-col shadow-2xl">
-              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-5xl h-full max-h-[90vh] bg-white dark:bg-[#0C0C0C] rounded-[40px] border border-gray-200 dark:border-white/10 overflow-hidden flex flex-col shadow-2xl">
+              <div className="p-5 sm:p-6 border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.02] flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="p-2 bg-primary/10 rounded-lg text-primary"><ShieldCheck size={20} /></div>
+                  <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><ShieldCheck size={22} /></div>
                   <div>
-                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">{previewDoc.title}</h3>
-                    <p className="text-[10px] text-primary font-black uppercase tracking-[0.2em]">{previewDoc.type}</p>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-md">{previewDoc.title}</h3>
+                    <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-0.5">{previewDoc.type}</p>
                   </div>
                 </div>
-                <button onClick={() => setPreviewDoc(null)} className="p-2 hover:bg-white/5 rounded-full text-gray-500 transition-all"><X size={24} /></button>
+                <button onClick={() => setPreviewDoc(null)} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-500 transition-all"><X size={24} /></button>
               </div>
 
-              <div ref={pdfContainerRef} className="flex-1 bg-zinc-900 relative overflow-auto group custom-scrollbar">
-                <div className="absolute inset-0 z-20 pointer-events-none opacity-[0.03] flex flex-wrap gap-20 p-20 overflow-hidden rotate-[-15deg]">
-                  {[...Array(15)].map((_, i) => (<span key={i} className="text-4xl font-black whitespace-nowrap text-white uppercase">ESRON ADMIN PREVIEW</span>))}
+              <div ref={pdfContainerRef} className="flex-1 bg-zinc-100 dark:bg-zinc-950 relative overflow-auto custom-scrollbar flex justify-center items-start pt-8 pb-16">
+                {/* Watermark */}
+                <div className="absolute inset-0 z-20 pointer-events-none opacity-[0.02] dark:opacity-[0.04] flex flex-wrap gap-20 p-20 overflow-hidden rotate-[-15deg]">
+                  {[...Array(15)].map((_, i) => (<span key={i} className="text-5xl font-black whitespace-nowrap text-gray-900 dark:text-white uppercase">ESRON PREVIEW</span>))}
                 </div>
                 
                 {(previewDoc.fileUrl && containerWidth > 0) ? (
@@ -247,27 +343,35 @@ const ManageDocuments = () => {
                     file={previewDoc._id ? `${api.defaults.baseURL}/documents/${previewDoc._id}/file` : getAssetUrl(previewDoc.fileUrl)}
                     onLoadSuccess={onDocumentLoadSuccess}
                     onLoadError={onDocumentLoadError}
-                    loading={<LoadingSpinner />}
-                    className="flex flex-col items-center py-4"
+                    loading={
+                      <div className="py-24 flex flex-col items-center justify-center gap-3">
+                        <LoadingSpinner />
+                        <span className="text-sm font-semibold text-gray-500">Loading secure preview...</span>
+                      </div>
+                    }
+                    className="flex flex-col items-center w-full z-30 relative px-4"
                   >
                     {pdfError ? (
-                      <div className="text-red-400 p-8 bg-red-500/10 rounded-lg m-4 flex items-center gap-4"><AlertTriangle/> {pdfError}</div>
+                      <div className="text-red-500 p-8 bg-red-500/10 rounded-2xl m-4 flex flex-col items-center text-center gap-3 border border-red-500/20">
+                        <AlertTriangle size={32} /> 
+                        <p className="font-bold text-sm">{pdfError}</p>
+                        <p className="text-xs opacity-80 max-w-sm mt-1">This usually means the file could not be fetched from the secure storage. Please check if the file exists or try re-uploading.</p>
+                      </div>
                     ) : (
                       Array.from(new Array(numPages), (el, index) => (
-                        <Page key={`page_${index + 1}`} pageNumber={index + 1} width={containerWidth} renderTextLayer={false} renderAnnotationLayer={false} className="mb-4 shadow-lg" />
+                        <div key={`page_${index + 1}`} className="mb-6 shadow-2xl rounded-xl overflow-hidden bg-white">
+                          <Page pageNumber={index + 1} width={Math.min(containerWidth - 64, 900)} renderTextLayer={false} renderAnnotationLayer={false} className="select-none" />
+                        </div>
                       ))
                     )}
                   </Document>
                 ) : (
-                  <div className='w-full h-full flex items-center justify-center text-gray-500 p-4'>
-                    <p>Document file not found or URL is invalid.</p>
+                  <div className='w-full h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center'>
+                    <File size={48} className="mb-4 opacity-50" />
+                    <p className="font-bold text-gray-900 dark:text-white">Document file not found.</p>
+                    <p className="text-sm mt-2">The URL is invalid or the file has been removed.</p>
                   </div>
                 )}
-
-                <div className="absolute bottom-6 right-6 z-40 px-4 py-2 glass rounded-full border border-primary/20 flex items-center gap-2 backdrop-blur-xl">
-                  <Lock size={12} className="text-primary" />
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Secured Preview</span>
-                </div>
               </div>
             </motion.div>
           </div>
