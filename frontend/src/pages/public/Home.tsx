@@ -275,16 +275,17 @@ const Home = () => {
                 <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
                 
                 {/* Main Identity Box */}
-                <div className="relative w-full h-full rounded-[40px] border-2 border-primary/40 p-3 bg-white dark:bg-[#0A0A0A] shadow-2xl overflow-hidden group">
+                <div className="relative w-full h-full rounded-[40px] border-2 border-primary/50 bg-white shadow-2xl overflow-hidden group p-2">
                   <img 
                     src={heroData.profileImage} 
                     alt="Esron Profile" 
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&q=80';
                     }}
-                    className="w-full h-full object-cover rounded-[32px] transition-all duration-700 group-hover:scale-105"
+                    className="w-full h-full object-cover object-top rounded-[32px] transition-transform duration-700 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-20 transition-opacity rounded-[32px]" />
+                  {/* Subtle inner gradient to ground the image */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60 group-hover:opacity-30 transition-opacity rounded-[40px] pointer-events-none" />
                 </div>
 
                 {/* Floating Micro Badges */}
