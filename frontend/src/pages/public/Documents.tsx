@@ -82,9 +82,8 @@ const Documents = () => {
     setPdfError(null);
   };
 
-  const onDocumentLoadError = (error: Error) => {
-    console.error('PDF.js Error:', error);
-    setPdfError(`Failed to load document preview. (${error.message})`);
+  const onDocumentLoadError = (err: Error) => {
+    setPdfError(`Failed to load document preview. (${err.message})`);
   };
 
   if (isLoading) return <LoadingSpinner />;

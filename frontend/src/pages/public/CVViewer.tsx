@@ -52,7 +52,8 @@ const CVViewer = () => {
     const response = await api.get('/cv');
     return response.data;
   }, {
-    retry: false, // don't retry on 404
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   // Strict View-Only Anti-Download & Anti-Print protections
@@ -76,9 +77,8 @@ const CVViewer = () => {
     setPdfError(null);
   }
 
-  function onDocumentLoadError(error: Error): void {
-    console.error("PDF.js Load Error:", error.message);
-    setPdfError(`Failed to load CV preview (${error.message}).`);
+  function onDocumentLoadError(err: Error): void {
+    setPdfError(err.message);
   }
 
   const cv = Array.isArray(cvData) ? cvData[0] : cvData;
